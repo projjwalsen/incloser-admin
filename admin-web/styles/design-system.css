@@ -1,0 +1,48 @@
+@import "./tokens.css";
+
+body {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  background: var(--bg-page);
+}
+
+.text-heading-1 {
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.text-heading-2 {
+  font-size: var(--text-lg);
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.text-body {
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+
+.text-body-sm {
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.soft-input {
+  width: 100%;
+  border: 1px solid #d9e4ff;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--text-primary);
+  padding: 10px 14px;
+  font-size: var(--text-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.soft-input:focus {
+  outline: none;
+  border-color: #b4c9ff;
+  box-shadow: 0 0 0 4px rgba(41, 98, 255, 0.14);
+}

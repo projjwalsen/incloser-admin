@@ -1,0 +1,104 @@
+@import "tailwindcss";
+@import "../styles/design-system.css";
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+@import "tailwindcss";
+
+:root {
+  --background: #f4e8ee;
+  --foreground: #1f1f24;
+
+  --app-gradient:
+    radial-gradient(1200px 600px at 8% 0%, #f2c8d8 0%, transparent 56%),
+    radial-gradient(900px 500px at 95% 10%, #e3d3d0 0%, transparent 52%),
+    radial-gradient(900px 700px at 35% 95%, #dcc4cd 0%, transparent 55%),
+    linear-gradient(150deg, #f7dde8 0%, #eed4dc 48%, #e4cccf 100%);
+
+  --shell-bg: rgba(247, 247, 248, 0.88);
+  --shell-border: rgba(255, 255, 255, 0.65);
+
+  --sidebar-bg: #fbfbfc;
+  --card-bg: #ffffff;
+  --card-muted-bg: #f7f8fb;
+
+  --primary: #3f7ff6;
+  --primary-press: #336de0;
+  --primary-soft: #e8f0ff;
+
+  --text-primary: #1f1f24;
+  --text-secondary: #6b7280;
+  --border-soft: #e6e8ef;
+
+  --shadow-shell:
+    0 20px 60px rgba(116, 72, 98, 0.12),
+    0 4px 20px rgba(77, 40, 62, 0.08);
+  --shadow-card:
+    0 10px 30px rgba(47, 55, 79, 0.08),
+    0 2px 8px rgba(47, 55, 79, 0.04);
+
+  --status-active-bg: #e9f8ef;
+  --status-active-fg: #1d8b50;
+  --status-pending-bg: #fff4db;
+  --status-pending-fg: #a46a00;
+  --status-inactive-bg: #ffe8eb;
+  --status-inactive-fg: #be3f51;
+  --status-approved-bg: #e8f2ff;
+  --status-approved-fg: #2e6fd8;
+  --status-rejected-bg: #ffe6ef;
+  --status-rejected-fg: #c43574;
+  --status-review-bg: #f0e9ff;
+  --status-review-fg: #7f4ecf;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--app-gradient);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.panel-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.soft-input {
+  @apply w-full border px-4 py-2.5 text-sm outline-none transition;
+  border-radius: 14px;
+  border-color: var(--border-soft);
+  background: #fff;
+  color: var(--text-primary);
+}
+
+.soft-input::placeholder {
+  color: #98a1b2;
+}
+
+.soft-input:focus {
+  border-color: color-mix(in oklab, var(--primary) 45%, #ffffff 55%);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 12%, #ffffff 88%);
+}
+
+.soft-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.soft-scroll::-webkit-scrollbar-thumb {
+  background: #d4d9e6;
+  border-radius: 10px;
+}
