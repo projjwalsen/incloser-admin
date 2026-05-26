@@ -27,6 +27,29 @@ function audioBadge(status: FemaleModelSummary["audioVerificationStatus"]) {
   return { label: "In review", variant: "info" as const };
 }
 
+const dateFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+
+function formatRegisteredAt(iso: string | null | undefined): { absolute: string; relative: string } {
+  if (!iso) return { absolute: "—", relative: "" };
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return { absolute: "—", relative: "" };
+  const absolute = dateFormatter.format(date);
+  const diffMs = Date.now() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  let relative: string;
+  if (diffDays < 0) relative = "just now";
+  else if (diffDays === 0) relative = "today";
+  else if (diffDays === 1) relative = "yesterday";
+  else if (diffDays < 30) relative = `${diffDays}d ago`;
+  else if (diffDays < 365) relative = `${Math.floor(diffDays / 30)}mo ago`;
+  else relative = `${Math.floor(diffDays / 365)}y ago`;
+  return { absolute, relative };
+}
+
 export default function ModelsPage() {
   const router = useRouter();
   const pageSize = 10;
@@ -150,15 +173,16 @@ export default function ModelsPage() {
             </div>
           ) : null}
           <div className="relative w-full overflow-x-auto">
-            <table className="w-full min-w-[920px] table-fixed text-left text-sm">
+            <table className="w-full min-w-[1040px] table-fixed text-left text-sm">
               <colgroup>
                 <col className="w-14" />
-                <col className="w-[18%]" />
-                <col className="w-[14%]" />
-                <col className="w-[14%]" />
                 <col className="w-[16%]" />
                 <col className="w-[12%]" />
                 <col className="w-[12%]" />
+                <col className="w-[14%]" />
+                <col className="w-[11%]" />
+                <col className="w-[11%]" />
+                <col className="w-[11%]" />
                 <col className="min-w-[200px]" />
               </colgroup>
               <thead className="bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
@@ -168,6 +192,7 @@ export default function ModelsPage() {
                   <th className="px-5 py-4 font-semibold">Phone</th>
                   <th className="px-5 py-4 font-semibold">City/State</th>
                   <th className="px-5 py-4 font-semibold">Languages</th>
+                  <th className="px-5 py-4 font-semibold">Registered</th>
                   <th className="px-5 py-4 font-semibold">Verification Status</th>
                   <th className="px-5 py-4 font-semibold">Audio Verification</th>
                   <th className="px-5 py-4 text-right font-semibold">Actions</th>
@@ -177,6 +202,7 @@ export default function ModelsPage() {
                 {rows.map((model) => {
                   const v = verificationBadge(model.verificationStatus);
                   const a = audioBadge(model.audioVerificationStatus);
+                  const registered = formatRegisteredAt(model.createdAt);
                   return (
                     <tr key={model.id} className="border-t border-[#eef2ff]">
                       <td className="px-5 py-4">
@@ -200,6 +226,12 @@ export default function ModelsPage() {
                         <p className="mt-0.5 text-sm font-normal text-[var(--text-muted)]">
                           {model.secondaryLanguages.length > 0 ? model.secondaryLanguages.join(", ") : "—"}
                         </p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-[var(--text-primary)]">{registered.absolute}</p>
+                        {registered.relative ? (
+                          <p className="mt-0.5 text-[11px] font-normal text-[var(--text-muted)]">{registered.relative}</p>
+                        ) : null}
                       </td>
                       <td className="px-5 py-4">
                         <StatusBadge label={v.label} variant={v.variant} />
@@ -259,14 +291,14 @@ export default function ModelsPage() {
                 })}
                 {loading ? (
                   <tr>
-                    <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={8}>
+                    <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={9}>
                       Loading models...
                     </td>
                   </tr>
                 ) : null}
                 {!loading && rows.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={8}>
+                    <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={9}>
                       No models found for current filters.
                     </td>
                   </tr>
