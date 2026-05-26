@@ -115,7 +115,7 @@ export function Sidebar() {
   const isGroupExpanded = useCallback(
     (group: NavGroup) => {
       const prefixes = childPrefixes(group.items);
-      if (prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
+      if (prefixes.some((p) => pathname === p || (pathname?.startsWith(`${p}/`) ?? false))) return true;
       return !collapsed.has(group.id);
     },
     [pathname, collapsed],
@@ -123,7 +123,7 @@ export function Sidebar() {
 
   const toggleGroup = (group: NavGroup) => {
     const prefixes = childPrefixes(group.items);
-    if (prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return;
+    if (prefixes.some((p) => pathname === p || (pathname?.startsWith(`${p}/`) ?? false))) return;
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(group.id)) next.delete(group.id);
@@ -132,7 +132,8 @@ export function Sidebar() {
     });
   };
 
-  const linkActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const linkActive = (href: string) =>
+    pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
 
   return (
     <aside className="flex h-full w-[260px] flex-col rounded-[24px] border border-white/80 bg-white/90 p-4 shadow-[var(--shadow-card)] backdrop-blur-sm">

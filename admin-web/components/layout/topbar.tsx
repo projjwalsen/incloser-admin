@@ -6,7 +6,7 @@ import { SearchBar } from "@/components/ui/search-bar";
 import { SecondaryButton } from "@/components/ui/secondary-button";
 
 export function Topbar() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const isModelDetail = pathname.startsWith("/models/") && pathname !== "/models";
   const isModelsList = pathname === "/models";
   const isUsersList = pathname === "/users";

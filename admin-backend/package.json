@@ -1,8 +1,17 @@
 {
-  "name": "incloser-admin-backend",
+  "name": "@incloser/admin-backend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./dist/app.js",
+  "types": "./dist/app.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
+    }
+  },
+  "files": ["dist", "src"],
   "scripts": {
     "sync-env-from-app": "node scripts/sync-env-from-app.mjs",
     "create-admin": "node scripts/create-admin.mjs",
