@@ -110,12 +110,12 @@ export async function adminGet<T>(path: string): Promise<T> {
     mapFetchNetworkError(e);
   }
 
-  const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string };
-  if (!response.ok) {
+  const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string; ok?: boolean };
+  if (!response.ok || json.ok === false) {
     throw new Error(json.message ?? `Request failed with status ${response.status}`);
   }
   if (!json.data) {
-    throw new Error("Malformed API response: missing data");
+    throw new Error(json.message ?? "Malformed API response: missing data");
   }
   return json.data;
 }
@@ -162,12 +162,12 @@ export async function adminPost<T>(path: string, body: unknown = {}): Promise<T>
     mapFetchNetworkError(e);
   }
 
-  const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string };
-  if (!response.ok) {
+  const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string; ok?: boolean };
+  if (!response.ok || json.ok === false) {
     throw new Error(json.message ?? `Request failed with status ${response.status}`);
   }
   if (!json.data) {
-    throw new Error("Malformed API response: missing data");
+    throw new Error(json.message ?? "Malformed API response: missing data");
   }
   return json.data;
 }
@@ -189,12 +189,12 @@ export async function adminPatch<T>(path: string, body: unknown): Promise<T> {
     mapFetchNetworkError(e);
   }
 
-  const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string };
-  if (!response.ok) {
+  const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string; ok?: boolean };
+  if (!response.ok || json.ok === false) {
     throw new Error(json.message ?? `Request failed with status ${response.status}`);
   }
   if (!json.data) {
-    throw new Error("Malformed API response: missing data");
+    throw new Error(json.message ?? "Malformed API response: missing data");
   }
   return json.data;
 }

@@ -97,10 +97,19 @@ export const adminUsersService = {
 
     if (error) {
       if (error.code === "23505") {
+        const detail = pgErrorText(error);
+        if (/email/i.test(detail)) {
+          throw new Error("That username conflicts with an existing account email. Try another username.");
+        }
         throw new Error("Username already exists.");
       }
+      if (error.code === "23514") {
+        throw new Error(
+          "Invalid role for this database. Re-run supabase/admin_users_username.sql in Supabase.",
+        );
+      }
       console.error("[adminUsers] create", pgErrorText(error));
-      throw new Error("Could not create admin user");
+      throw new Error(`Could not create admin user: ${pgErrorText(error)}`);
     }
 
     return mapAccount(data);

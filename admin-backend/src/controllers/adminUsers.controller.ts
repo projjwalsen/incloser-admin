@@ -40,20 +40,27 @@ export const adminUsersController = {
 
   async create(req: Request, res: Response) {
     const parsed = createSchema.safeParse(req.body);
-    if (!parsed.success) return fail(res, "Invalid payload");
+    if (!parsed.success) {
+      const detail = parsed.error.issues.map((i) => i.message).join("; ");
+      return fail(res, detail || "Invalid payload");
+    }
 
     const admin = (req as RequestWithAdmin).admin;
     if (!admin?.id) return fail(res, "Unauthorized", 401);
 
     try {
       const created = await adminUsersService.create(parsed.data);
-      await createAuditLog({
-        adminId: admin.id,
-        action: "CREATE_ADMIN_USER",
-        entityType: "admin_users",
-        entityId: created.id,
-        metadata: { adminEmail: admin.email, username: created.username, role: created.role },
-      });
+      try {
+        await createAuditLog({
+          adminId: admin.id,
+          action: "CREATE_ADMIN_USER",
+          entityType: "admin_users",
+          entityId: created.id,
+          metadata: { adminEmail: admin.email, username: created.username, role: created.role },
+        });
+      } catch (auditError) {
+        console.warn("[adminUsers] audit log skipped:", auditError);
+      }
       return ok(res, created, "Team member created");
     } catch (error) {
       return fail(res, error instanceof Error ? error.message : "Could not create user", 400);

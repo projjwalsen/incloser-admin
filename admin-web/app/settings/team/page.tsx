@@ -12,9 +12,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { TableShell } from "@/components/ui/table-shell";
 import {
   createAdminUser,
+  fetchAdminProfile,
   fetchAdminUsers,
   updateAdminUser,
 } from "@/lib/admin-users-api";
+import { getAuthToken } from "@/lib/api-client";
+import { getAdminRole, setAdminSession } from "@/lib/admin-session";
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super admin",
@@ -26,10 +29,29 @@ function roleLabel(role: AdminRole): string {
   return ROLE_LABELS[role] ?? role;
 }
 
+function validateCreateInput(input: {
+  username: string;
+  fullName: string;
+  password: string;
+}): string | null {
+  const username = input.username.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+    return "Username must be 3–32 characters (letters, numbers, . _ - only).";
+  }
+  if (!input.fullName.trim()) {
+    return "Full name is required.";
+  }
+  if (input.password.length < 8) {
+    return "Password must be at least 8 characters.";
+  }
+  return null;
+}
+
 export default function TeamSettingsPage() {
   const [rows, setRows] = useState<AdminUserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [username, setUsername] = useState("");
@@ -51,7 +73,37 @@ export default function TeamSettingsPage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    void (async () => {
+      const token = getAuthToken();
+      if (!token) return;
+
+      let role = getAdminRole();
+      if (!role) {
+        try {
+          const profile = await fetchAdminProfile();
+          setAdminSession({
+            token,
+            role: profile.role,
+            username: profile.username,
+            fullName: profile.fullName,
+            email: profile.email,
+          });
+          role = profile.role;
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Could not verify admin session");
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (role !== "super_admin") {
+        setAccessDenied(true);
+        setLoading(false);
+        return;
+      }
+
+      await load();
+    })();
   }, [load]);
 
   const staffRows = useMemo(
@@ -60,10 +112,21 @@ export default function TeamSettingsPage() {
   );
 
   const onCreate = async () => {
+    const validationError = validateCreateInput({ username, fullName, password });
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
-      await createAdminUser({ username, password, fullName, role });
+      await createAdminUser({
+        username: username.trim().toLowerCase(),
+        password,
+        fullName: fullName.trim(),
+        role,
+      });
       setModalOpen(false);
       setUsername("");
       setFullName("");
@@ -108,6 +171,12 @@ export default function TeamSettingsPage() {
             </PrimaryButton>
           </div>
         </div>
+
+        {accessDenied ? (
+          <div className="mb-4 rounded-[16px] border border-[#f1c2c9] bg-[var(--status-danger-bg)] px-4 py-3 text-sm font-semibold text-[var(--status-danger-text)]">
+            Only super admins can manage team accounts. Sign out and sign in with a super admin account.
+          </div>
+        ) : null}
 
         {error ? (
           <div className="mb-4 rounded-[16px] border border-[#f1c2c9] bg-[var(--status-danger-bg)] px-4 py-3 text-sm font-semibold text-[var(--status-danger-text)]">

@@ -43,10 +43,17 @@ export function clearAdminSession(): void {
   Object.values(SESSION_KEYS).forEach((key) => localStorage.removeItem(key));
 }
 
+/** Routes restricted to super_admin in the CMS shell. */
+const SUPER_ADMIN_ONLY_PREFIXES = ["/settings/team", "/audit-logs"];
+
 /** Nav visibility by role — operations staff see agencies + verification only. */
 export function canAccessNav(href: string, role: AdminRole | null): boolean {
   if (!role) return false;
   if (role === "super_admin") return true;
+
+  if (SUPER_ADMIN_ONLY_PREFIXES.some((p) => href === p || href.startsWith(`${p}/`))) {
+    return false;
+  }
 
   const operationsAllowed = [
     "/dashboard",
@@ -56,7 +63,6 @@ export function canAccessNav(href: string, role: AdminRole | null): boolean {
     "/verification/profile",
     "/verification/audio",
     "/models",
-    "/settings/team",
   ];
 
   const verificationAllowed = [
