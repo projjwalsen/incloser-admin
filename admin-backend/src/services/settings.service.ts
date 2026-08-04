@@ -1,5 +1,6 @@
 import type { AppSettings, BillingSettings } from "@incloser/shared-types";
 import { billingSettingsService } from "./billingSettings.service.js";
+import { featureSettingsService } from "./featureSettings.service.js";
 
 const defaults: AppSettings = {
   tokenPricingInr: 1,
@@ -12,6 +13,7 @@ const defaults: AppSettings = {
     maintenanceMode: false,
     walletTopUps: true,
     modelSelfServe: true,
+    afterCallRating: true,
   },
   supportContactInfo: "support@incloser.app\n+91 80000 00000",
   billing: billingSettingsService.defaults(),
@@ -19,11 +21,22 @@ const defaults: AppSettings = {
 
 let state: AppSettings = structuredClone(defaults);
 let billingHydrated = false;
+let featuresHydrated = false;
 
 async function hydrateBilling(): Promise<void> {
   if (billingHydrated) return;
   state.billing = await billingSettingsService.load();
   billingHydrated = true;
+}
+
+async function hydrateFeatures(): Promise<void> {
+  if (featuresHydrated) return;
+  const features = await featureSettingsService.load();
+  state.featureToggles = {
+    ...state.featureToggles,
+    afterCallRating: features.afterCallRatingEnabled,
+  };
+  featuresHydrated = true;
 }
 
 function mergeBilling(value: unknown): BillingSettings | null {
@@ -35,6 +48,8 @@ function mergeBilling(value: unknown): BillingSettings | null {
     "voiceRateInrPerMin",
     "videoRateInrPerMin",
     "modelSharePercent",
+    "platformCommissionPercent",
+    "fixedChargeInr",
     "reserveMinutes",
     "disconnectMinutes",
   ];
@@ -54,12 +69,14 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 export const settingsService = {
   async get(): Promise<AppSettings> {
     await hydrateBilling();
+    await hydrateFeatures();
     return structuredClone(state);
   },
 
   /** Shallow merge for top-level keys; `featureToggles` is deep-merged when provided as an object. */
   async patch(partial: Record<string, unknown>): Promise<AppSettings> {
     await hydrateBilling();
+    await hydrateFeatures();
     const next: AppSettings = { ...state };
     for (const [key, value] of Object.entries(partial)) {
       if (key === "billing") {
@@ -75,6 +92,11 @@ export const settingsService = {
           if (typeof tv === "boolean") merged[tk] = tv;
         }
         next.featureToggles = merged;
+        if (typeof merged.afterCallRating === "boolean") {
+          await featureSettingsService.save({
+            afterCallRatingEnabled: merged.afterCallRating,
+          });
+        }
         continue;
       }
       if (key === "languageMasterList" && Array.isArray(value) && value.every((x) => typeof x === "string")) {

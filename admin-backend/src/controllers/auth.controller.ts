@@ -7,10 +7,15 @@ import { fail, ok } from "../utils/http.js";
 
 type RequestWithAdmin = Request & { admin?: AdminUser };
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
+const loginSchema = z
+  .object({
+    username: z.string().min(3).max(32).optional(),
+    email: z.string().email().optional(),
+    password: z.string().min(6),
+  })
+  .refine((data) => Boolean(data.username?.trim() || data.email?.trim()), {
+    message: "Username or email is required",
+  });
 
 const reconfirmSchema = z.object({
   password: z.string().min(1, "Password is required"),
@@ -22,7 +27,10 @@ export const authController = {
     if (!parsed.success) return fail(res, "Invalid login payload");
 
     try {
-      const result = await authService.login(parsed.data.email, parsed.data.password);
+      const result = await authService.login(
+        { username: parsed.data.username, email: parsed.data.email },
+        parsed.data.password,
+      );
       return ok(res, result, "Logged in");
     } catch (error) {
       if (error instanceof AuthLoginError) {
@@ -30,6 +38,21 @@ export const authController = {
       }
       console.error("[auth] login", error);
       return fail(res, "Login temporarily unavailable.", 503);
+    }
+  },
+
+  async me(req: Request, res: Response) {
+    const admin = (req as RequestWithAdmin).admin;
+    if (!admin?.id) return fail(res, "Unauthorized", 401);
+
+    try {
+      const profile = await authService.getProfile(admin.id);
+      return ok(res, profile);
+    } catch (error) {
+      if (error instanceof AuthLoginError) {
+        return fail(res, error.message, error.statusCode);
+      }
+      return fail(res, "Could not load profile", 500);
     }
   },
 

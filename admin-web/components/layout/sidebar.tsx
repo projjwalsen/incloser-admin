@@ -15,15 +15,19 @@ import {
   LineChart,
   LogOut,
   Mic2,
+  IndianRupee,
   ScrollText,
   Settings,
   ShieldCheck,
   Sparkles,
   Users,
   Wallet,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { clearAdminAuth } from "@/lib/api-client";
+import { canAccessNav, getAdminRole } from "@/lib/admin-session";
+import type { AdminRole } from "@incloser/shared-types";
 
 type NavIcon = ComponentType<{ className?: string }>;
 
@@ -76,6 +80,7 @@ const navStructure: (NavSingle | NavGroup)[] = [
     label: "Finance",
     icon: Landmark,
     items: [
+      { href: "/finance/unit-prices", label: "Unit prices", icon: IndianRupee },
       { href: "/finance/wallets", label: "Wallet", icon: Landmark },
       { href: "/finance/revenue", label: "Revenue", icon: LineChart },
     ],
@@ -83,11 +88,25 @@ const navStructure: (NavSingle | NavGroup)[] = [
   { kind: "link", href: "/withdrawals", label: "Withdrawal", icon: Wallet },
   {
     kind: "group",
+    id: "agencies",
+    label: "Agencies",
+    icon: Building2,
+    items: [
+      { href: "/agencies", label: "All agencies", icon: Building2 },
+      { href: "/agencies/withdrawals", label: "Agency payouts", icon: Wallet },
+      { href: "/agencies/settings", label: "Agency settings", icon: Settings },
+    ],
+  },
+  {
+    kind: "group",
     id: "cms",
     label: "CMS",
     icon: Images,
     items: [
       { href: "/cms/banners", label: "Banner", icon: Images },
+      { href: "/cms/female-tutorials", label: "Model videos", icon: Images },
+      { href: "/cms/notice-board", label: "Notice board", icon: Images },
+      { href: "/cms/audio-verification-scripts", label: "Voice scripts", icon: Images },
       { href: "/cms/avatars", label: "Avatars", icon: CircleUserRound },
       { href: "/cms/faq", label: "FAQ", icon: HelpCircle },
       { href: "/cms/policies", label: "Policies", icon: ScrollText },
@@ -95,6 +114,7 @@ const navStructure: (NavSingle | NavGroup)[] = [
   },
   { kind: "link", href: "/audit-logs", label: "Audit Logs", icon: FileSearch },
   { kind: "link", href: "/settings", label: "Settings", icon: Settings },
+  { kind: "link", href: "/settings/team", label: "Team accounts", icon: Users },
 ];
 
 function childPrefixes(items: NavLeaf[]) {
@@ -105,6 +125,15 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const role = getAdminRole() as AdminRole | null;
+
+  const visibleNav = navStructure.filter((entry) => {
+    if (entry.kind === "link") {
+      return canAccessNav(entry.href, role);
+    }
+    const visibleItems = entry.items.filter((item) => canAccessNav(item.href, role));
+    return visibleItems.length > 0;
+  });
 
   const logout = () => {
     clearAdminAuth();
@@ -142,7 +171,7 @@ export function Sidebar() {
         <h2 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Admin CMS</h2>
       </div>
       <nav className="soft-scroll flex-1 space-y-0.5 overflow-y-auto pr-0.5">
-        {navStructure.map((entry) => {
+        {visibleNav.map((entry) => {
           if (entry.kind === "link") {
             const active = linkActive(entry.href);
             return (
@@ -160,8 +189,9 @@ export function Sidebar() {
             );
           }
 
+          const visibleItems = entry.items.filter((item) => canAccessNav(item.href, role));
           const expanded = isGroupExpanded(entry);
-          const groupHasActive = entry.items.some((i) => linkActive(i.href));
+          const groupHasActive = visibleItems.some((i) => linkActive(i.href));
 
           return (
             <div key={entry.id} className="pt-1">
@@ -183,7 +213,7 @@ export function Sidebar() {
               </button>
               {expanded ? (
                 <ul className="mt-0.5 space-y-0.5 border-l border-[#e4ebff] pl-2 ml-4 py-1">
-                  {entry.items.map((item) => {
+                  {visibleItems.map((item) => {
                     const active = linkActive(item.href);
                     return (
                       <li key={item.href}>

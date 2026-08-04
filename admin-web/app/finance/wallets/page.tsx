@@ -58,7 +58,7 @@ export default function FinanceWalletsPage() {
             <p className="text-body-sm text-[var(--text-muted)]">Wallets in view</p>
             <p className="mt-2 text-3xl font-bold text-[var(--text-primary)]">{rows.length}</p>
             <div className="mt-3">
-              <StatusBadge label="From admin API" variant="info" />
+              <StatusBadge label="Live DB" variant="info" />
             </div>
           </CardShell>
           <CardShell>

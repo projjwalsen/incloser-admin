@@ -1,10 +1,23 @@
 /** Roles assignable to admin users and JWT `role` claim */
 export type AdminRole =
   | "super_admin"
+  | "operations_admin"
   | "moderator"
   | "verification_admin"
   | "finance_admin"
   | "support_admin";
+
+/** CMS admin account (no password in API responses). */
+export type AdminUserAccount = {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  role: AdminRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 /** Standard API envelope for admin JSON responses */
 export type ApiResponse<T> = {
@@ -132,6 +145,41 @@ export type CmsBanner = {
   priority: number;
 };
 
+/** Female home tutorial carousel — admin CMS + mobile RPC */
+export type CmsTutorialVideo = {
+  id: string;
+  title: string;
+  thumbnailUrl: string;
+  videoUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Female home notice board carousel — admin CMS + mobile RPC */
+export type CmsNoticeBoardItem = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  accent: string;
+  actionKey: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Language-wise speak-out text for model audio verification */
+export type CmsAudioVerificationScript = {
+  languageCode: string;
+  languageLabel: string;
+  scriptText: string;
+  isActive: boolean;
+  updatedAt: string;
+};
+
 /** Selectable onboarding avatar shown during user onboarding */
 export type AvatarGenderType = "male" | "female";
 
@@ -199,12 +247,15 @@ export type FinanceRevenuePayload = {
  * Admin settings document returned by GET/PATCH `/api/admin/settings`.
  * Field names align with the admin-backend settings service.
  */
-/** Per-minute INR rates and model payout share (admin + mobile billing). */
+/** Per-minute INR rates and model payout settings (admin + mobile billing). */
 export type BillingSettings = {
   textRateInrPerMin: number;
   voiceRateInrPerMin: number;
   videoRateInrPerMin: number;
+  /** @deprecated Use platformCommissionPercent — kept for backward compatibility */
   modelSharePercent: number;
+  platformCommissionPercent: number;
+  fixedChargeInr: number;
   reserveMinutes: number;
   disconnectMinutes: number;
 };
@@ -237,4 +288,90 @@ export type AuditLogItem = {
   entityId: string;
   metadata: Record<string, unknown>;
   createdAt: string;
+};
+
+/** Agency payout / model withdrawal deduction settings (admin). */
+export type AgencySettings = {
+  defaultAgencyCommissionPercent: number;
+  platformWithdrawalChargePercent: number;
+  tdsThresholdInr: number;
+  tdsPercent: number;
+};
+
+export type AgencySummary = {
+  id: string;
+  name: string;
+  code: string;
+  commissionPercent: number;
+  availableBalanceInr: number;
+  lifetimeCommissionInr: number;
+  modelCount: number;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type AgencyModelRow = {
+  modelId: string;
+  userId: string | null;
+  nickname: string;
+  phone: string | null;
+  verificationStatus: string;
+  lifetimeCommissionInr: number;
+  createdAt: string;
+};
+
+export type AgencyCommissionRow = {
+  id: string;
+  modelId: string;
+  modelName: string;
+  grossWithdrawalInr: number;
+  commissionPercent: number;
+  commissionInr: number;
+  note: string | null;
+  createdAt: string;
+};
+
+export type AgencyWithdrawalStatus = "pending" | "approved" | "rejected" | "paid";
+
+export type AgencyWithdrawalRequest = {
+  id: string;
+  agencyId: string;
+  agencyName: string;
+  agencyCode: string;
+  requestedAmountInr: number;
+  platformChargeInr: number;
+  tdsInr: number;
+  netPayoutInr: number;
+  status: AgencyWithdrawalStatus;
+  payoutMethod: string | null;
+  bankMasked: string | null;
+  upiId: string | null;
+  financeNote: string | null;
+  paidTxnId: string | null;
+  paidVia: string | null;
+  requestedAt: string;
+  processedAt: string | null;
+};
+
+export type AgencyDetail = AgencySummary & {
+  models: AgencyModelRow[];
+  recentCommissions: AgencyCommissionRow[];
+  withdrawalRequests: AgencyWithdrawalRequest[];
+};
+
+export type AgencyLoginPayload = {
+  token: string;
+  agency: {
+    id: string;
+    name: string;
+    code: string;
+  };
+};
+
+export type AgencyPortalDashboard = {
+  agency: AgencySummary;
+  models: AgencyModelRow[];
+  recentCommissions: AgencyCommissionRow[];
+  withdrawalRequests: AgencyWithdrawalRequest[];
+  settings: AgencySettings;
 };

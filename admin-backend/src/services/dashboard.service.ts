@@ -48,12 +48,12 @@ function emptyDashboardCharts(): DashboardCharts {
   };
 }
 
-function sumAmount(rows: Array<Record<string, unknown>>): number {
-  return rows.reduce((sum, row) => {
-    const amount = Number(row.amount ?? 0);
-    return Number.isFinite(amount) ? sum + amount : sum;
-  }, 0);
-}
+const SESSION_CHARGE_SOURCES = new Set([
+  "text_charge",
+  "voice_charge",
+  "video_charge",
+  "call_charge",
+]);
 
 function groupByDayCount(rows: Array<Record<string, unknown>>, fieldCandidates: string[]): Map<string, number> {
   const map = new Map<string, number>();
@@ -66,12 +66,16 @@ function groupByDayCount(rows: Array<Record<string, unknown>>, fieldCandidates: 
   return map;
 }
 
-function groupByDayAmount(rows: Array<Record<string, unknown>>, dateFieldCandidates: string[]): Map<string, number> {
+function groupByDayAmount(
+  rows: Array<Record<string, unknown>>,
+  dateFieldCandidates: string[],
+  amountField = "amount"
+): Map<string, number> {
   const map = new Map<string, number>();
   for (const row of rows) {
     const raw = dateFieldCandidates.map((key) => row[key]).find((v) => typeof v === "string") as string | undefined;
     if (!raw) continue;
-    const amount = Number(row.amount ?? 0);
+    const amount = Math.abs(Number(row[amountField] ?? row.amount ?? 0));
     if (!Number.isFinite(amount)) continue;
     const key = raw.slice(0, 10);
     map.set(key, (map.get(key) ?? 0) + amount);
@@ -99,7 +103,11 @@ export const dashboardService = {
       supabase.from("audio_verifications").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("withdrawals").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("users").select("id", { count: "exact", head: true }).gte("created_at", todayIso),
-      supabase.from("transactions").select("amount,platform_earning,platform_earnings").gte("created_at", todayIso),
+      supabase
+        .from("wallet_transactions")
+        .select("amount_rupees,source,transaction_type")
+        .gte("created_at", todayIso)
+        .limit(10_000),
     ]);
 
     let skipTransactionsSummary = false;
@@ -112,7 +120,7 @@ export const dashboardService = {
       ["audio_verifications", pendingAudioRes],
       ["withdrawals", pendingWithdrawalsRes],
       ["users (today)", newUsersTodayRes],
-      ["transactions", todayTxRes],
+      ["wallet_transactions", todayTxRes],
     ] as const) {
       const err = res.error;
       if (!err) continue;
@@ -120,8 +128,8 @@ export const dashboardService = {
         console.warn("[dashboard] summary: Supabase unreachable, using empty summary:", pgErrorText(err));
         return emptyDashboardSummary();
       }
-      if (label === "transactions") {
-        console.warn("[dashboard] summary: transactions skipped:", pgErrorText(err));
+      if (label === "wallet_transactions") {
+        console.warn("[dashboard] summary: wallet_transactions skipped:", pgErrorText(err));
         skipTransactionsSummary = true;
         continue;
       }
@@ -135,13 +143,28 @@ export const dashboardService = {
     }
 
     const txRows = (skipTransactionsSummary ? [] : (todayTxRes.data ?? [])) as Array<Record<string, unknown>>;
-    const totalTokenRevenue = sumAmount(txRows);
-    const platformEarnings = txRows.reduce((sum, row) => {
-      const raw = row.platform_earning ?? row.platform_earnings;
-      if (raw === null || raw === undefined) return sum;
-      const value = Number(raw);
-      return Number.isFinite(value) ? sum + value : sum;
-    }, 0);
+    let sessionGross = 0;
+    let topupGross = 0;
+    let modelCredited = 0;
+    for (const row of txRows) {
+      const amount = Math.abs(Number(row.amount_rupees ?? 0));
+      if (!Number.isFinite(amount)) continue;
+      const source = String(row.source ?? "");
+      const type = String(row.transaction_type ?? "").toLowerCase();
+      if (SESSION_CHARGE_SOURCES.has(source) && type === "debit") {
+        sessionGross += amount;
+      } else if ((source === "topup" || source === "token_purchase") && type === "credit") {
+        topupGross += amount;
+      }
+      if ((source === "model_earning" || source === "host_payout") && type === "credit") {
+        modelCredited += amount;
+      }
+    }
+    const totalTokenRevenue = Math.round(sessionGross > 0 ? sessionGross : topupGross);
+    const platformEarnings = Math.max(
+      0,
+      Math.round(sessionGross > 0 ? sessionGross - modelCredited : 0)
+    );
 
     const countOrZero = (label: string, res: { count: number | null; error: PostgrestError | null }): number => {
       if (summaryDegraded.has(label)) return 0;
@@ -172,7 +195,11 @@ export const dashboardService = {
 
     const [usersRes, txRes, profileVerRes, audioVerRes] = await Promise.all([
       supabase.from("users").select("created_at").gte("created_at", oldestIso),
-      supabase.from("transactions").select("created_at,amount").gte("created_at", oldestIso),
+      supabase
+        .from("wallet_transactions")
+        .select("created_at,amount_rupees,source,transaction_type")
+        .gte("created_at", oldestIso)
+        .limit(10_000),
       supabase.from("female_profiles").select("created_at,updated_at").gte("created_at", oldestIso),
       supabase.from("audio_verifications").select("created_at,updated_at").gte("created_at", oldestIso),
     ]);
@@ -181,7 +208,7 @@ export const dashboardService = {
     const chartsDegraded = new Set<string>();
     for (const [label, res] of [
       ["users", usersRes],
-      ["transactions", txRes],
+      ["wallet_transactions", txRes],
       ["female_profiles", profileVerRes],
       ["audio_verifications", audioVerRes],
     ] as const) {
@@ -191,8 +218,8 @@ export const dashboardService = {
         console.warn("[dashboard] charts: Supabase unreachable, using empty trends:", pgErrorText(err));
         return emptyDashboardCharts();
       }
-      if (label === "transactions") {
-        console.warn("[dashboard] charts: transactions skipped:", pgErrorText(err));
+      if (label === "wallet_transactions") {
+        console.warn("[dashboard] charts: wallet_transactions skipped:", pgErrorText(err));
         skipTransactionsCharts = true;
         continue;
       }
@@ -207,11 +234,17 @@ export const dashboardService = {
 
     const userRows = (chartsDegraded.has("users") ? [] : (usersRes.data ?? [])) as Array<Record<string, unknown>>;
     const txRowsCharts = (skipTransactionsCharts ? [] : (txRes.data ?? [])) as Array<Record<string, unknown>>;
+    const chargeRows = txRowsCharts.filter((row) => {
+      const source = String(row.source ?? "");
+      const type = String(row.transaction_type ?? "").toLowerCase();
+      if (SESSION_CHARGE_SOURCES.has(source) && type === "debit") return true;
+      return (source === "topup" || source === "token_purchase") && type === "credit";
+    });
     const profileRows = (chartsDegraded.has("female_profiles") ? [] : (profileVerRes.data ?? [])) as Array<Record<string, unknown>>;
     const audioRows = (chartsDegraded.has("audio_verifications") ? [] : (audioVerRes.data ?? [])) as Array<Record<string, unknown>>;
 
     const registrationsByDay = groupByDayCount(userRows, ["created_at"]);
-    const revenueByDay = groupByDayAmount(txRowsCharts, ["created_at"]);
+    const revenueByDay = groupByDayAmount(chargeRows, ["created_at"], "amount_rupees");
     const profileByDay = groupByDayCount(profileRows, ["updated_at", "created_at"]);
     const audioByDay = groupByDayCount(audioRows, ["updated_at", "created_at"]);
 

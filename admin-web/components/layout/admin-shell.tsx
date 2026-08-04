@@ -2,13 +2,16 @@
 
 import type { PropsWithChildren } from "react";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getAuthToken } from "@/lib/api-client";
+import { canAccessNav, getAdminRole } from "@/lib/admin-session";
+import type { AdminRole } from "@incloser/shared-types";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
 export function AdminShell({ children }: PropsWithChildren) {
   const router = useRouter();
+  const pathname = usePathname();
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
@@ -18,10 +21,17 @@ export function AdminShell({ children }: PropsWithChildren) {
         router.replace("/login");
         return;
       }
+
+      const role = getAdminRole() as AdminRole | null;
+      if (pathname && role && !canAccessNav(pathname, role)) {
+        router.replace(role === "verification_admin" ? "/verification/profile" : "/agencies");
+        return;
+      }
+
       setSessionReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [router]);
+  }, [router, pathname]);
 
   if (!sessionReady) {
     return (

@@ -1,12 +1,21 @@
 import type { Request, Response } from "express";
 import { financeService } from "../services/finance.service.js";
-import { ok } from "../utils/http.js";
+import { fail, ok } from "../utils/http.js";
 
 export const financeController = {
-  wallets(_req: Request, res: Response) {
-    return ok(res, financeService.wallets());
+  async wallets(_req: Request, res: Response) {
+    try {
+      return ok(res, await financeService.wallets());
+    } catch (error) {
+      return fail(res, error instanceof Error ? error.message : "Failed to load wallets", 502);
+    }
   },
-  revenue(_req: Request, res: Response) {
-    return ok(res, financeService.revenue());
+
+  async revenue(_req: Request, res: Response) {
+    try {
+      return ok(res, await financeService.revenue());
+    } catch (error) {
+      return fail(res, error instanceof Error ? error.message : "Failed to load revenue", 502);
+    }
   },
 };

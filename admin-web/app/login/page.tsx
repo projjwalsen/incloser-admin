@@ -4,9 +4,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { adminLogin, getAuthToken } from "@/lib/api-client";
+import { defaultLandingPath, setAdminSession } from "@/lib/admin-session";
+import type { AdminRole } from "@incloser/shared-types";
 
 type FormState = {
-  email: string;
+  username: string;
   password: string;
 };
 
@@ -14,12 +16,15 @@ type Errors = Partial<Record<keyof FormState, string>>;
 
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>({ email: "", password: "" });
+  const [form, setForm] = useState<FormState>({ username: "", password: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
 
-  const canSubmit = useMemo(() => form.email.length > 0 && form.password.length > 0 && !isSubmitting, [form, isSubmitting]);
+  const canSubmit = useMemo(
+    () => form.username.length > 0 && form.password.length > 0 && !isSubmitting,
+    [form, isSubmitting],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -32,10 +37,12 @@ export default function LoginPage() {
 
   const validate = () => {
     const nextErrors: Errors = {};
-    if (!form.email.trim()) {
-      nextErrors.email = "Email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      nextErrors.email = "Enter a valid email address.";
+    const username = form.username.trim().toLowerCase();
+
+    if (!username) {
+      nextErrors.username = "Username is required.";
+    } else if (!/^[a-z0-9._-]{3,32}$/.test(username) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
+      nextErrors.username = "Enter a valid username or email.";
     }
 
     if (!form.password.trim()) {
@@ -55,12 +62,22 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      const { token } = await adminLogin({
-        email: form.email.trim(),
+      const username = form.username.trim();
+      const isEmail = username.includes("@");
+      const result = await adminLogin({
+        ...(isEmail ? { email: username.toLowerCase() } : { username: username.toLowerCase() }),
         password: form.password,
       });
-      localStorage.setItem("admin_token", token);
-      router.replace("/dashboard");
+
+      setAdminSession({
+        token: result.token,
+        role: result.admin.role as AdminRole,
+        username: result.admin.username,
+        fullName: result.admin.full_name,
+        email: result.admin.email,
+      });
+
+      router.replace(defaultLandingPath(result.admin.role as AdminRole));
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign in failed.";
@@ -85,7 +102,9 @@ export default function LoginPage() {
         <div className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">InCloser CMS</p>
           <h1 className="mt-2 text-heading-1 text-[var(--text-primary)]">Welcome back</h1>
-          <p className="mt-2 text-body-sm text-[var(--text-secondary)]">Sign in to continue to your premium admin workspace.</p>
+          <p className="mt-2 text-body-sm text-[var(--text-secondary)]">
+            Sign in with your username and password.
+          </p>
         </div>
 
         {apiError ? (
@@ -96,31 +115,30 @@ export default function LoginPage() {
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">
-              Email
+            <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">
+              Username
             </label>
             <input
-              id="email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+              id="username"
+              type="text"
+              value={form.username}
+              onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
               className="soft-input"
-              style={errors.email ? { borderColor: "#f1a2ae", boxShadow: "0 0 0 4px rgba(160, 34, 54, 0.11)" } : undefined}
-              placeholder="admin@incloser.app"
-              autoComplete="email"
+              style={errors.username ? { borderColor: "#f1a2ae", boxShadow: "0 0 0 4px rgba(160, 34, 54, 0.11)" } : undefined}
+              placeholder="ops.admin"
+              autoComplete="username"
             />
-            {errors.email ? <p className="mt-1.5 text-xs font-medium text-[var(--status-danger-text)]">{errors.email}</p> : null}
+            {errors.username ? (
+              <p className="mt-1.5 text-xs font-medium text-[var(--status-danger-text)]">{errors.username}</p>
+            ) : (
+              <p className="mt-1.5 text-xs text-[var(--text-muted)]">Super admins may also sign in with email.</p>
+            )}
           </div>
 
           <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="password" className="text-sm font-medium text-[var(--text-secondary)]">
-                Password
-              </label>
-              <button type="button" className="text-xs font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)]">
-                Forgot password?
-              </button>
-            </div>
+            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">
+              Password
+            </label>
             <input
               id="password"
               type="password"

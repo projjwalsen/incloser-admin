@@ -6,6 +6,8 @@ const DEFAULT_BILLING: BillingSettings = {
   voiceRateInrPerMin: 5,
   videoRateInrPerMin: 10,
   modelSharePercent: 85,
+  platformCommissionPercent: 10,
+  fixedChargeInr: 0.5,
   reserveMinutes: 3,
   disconnectMinutes: 1,
 };
@@ -16,6 +18,10 @@ function rowToBilling(row: Record<string, unknown>): BillingSettings {
     voiceRateInrPerMin: Number(row.voice_rate_inr ?? DEFAULT_BILLING.voiceRateInrPerMin),
     videoRateInrPerMin: Number(row.video_rate_inr ?? DEFAULT_BILLING.videoRateInrPerMin),
     modelSharePercent: Number(row.model_share_percent ?? DEFAULT_BILLING.modelSharePercent),
+    platformCommissionPercent: Number(
+      row.platform_commission_percent ?? DEFAULT_BILLING.platformCommissionPercent
+    ),
+    fixedChargeInr: Number(row.fixed_charge_inr ?? DEFAULT_BILLING.fixedChargeInr),
     reserveMinutes: Number(row.reserve_minutes ?? DEFAULT_BILLING.reserveMinutes),
     disconnectMinutes: Number(row.disconnect_minutes ?? DEFAULT_BILLING.disconnectMinutes),
   };
@@ -54,6 +60,8 @@ export const billingSettingsService = {
       voice_rate_inr: billing.voiceRateInrPerMin,
       video_rate_inr: billing.videoRateInrPerMin,
       model_share_percent: billing.modelSharePercent,
+      platform_commission_percent: billing.platformCommissionPercent,
+      fixed_charge_inr: billing.fixedChargeInr,
       reserve_minutes: billing.reserveMinutes,
       disconnect_minutes: billing.disconnectMinutes,
       updated_at: new Date().toISOString(),

@@ -4,6 +4,8 @@ type AdminApiEnvelope<T> = {
   data: T;
 };
 
+import { clearAdminSession } from "./admin-session";
+
 const ADMIN_AUTH_KEYS = ["admin_token", "adminToken", "token"] as const;
 
 export function getAuthToken(): string | null {
@@ -17,6 +19,7 @@ export function getAuthToken(): string | null {
 
 /** Clears stored JWT / session keys used across admin API modules. */
 export function clearAdminAuth(): void {
+  clearAdminSession();
   if (typeof window === "undefined") return;
   for (const key of ADMIN_AUTH_KEYS) {
     localStorage.removeItem(key);
@@ -25,7 +28,7 @@ export function clearAdminAuth(): void {
 
 /**
  * When `NEXT_PUBLIC_ADMIN_API_BASE_URL` is unset, use the Next.js rewrite target
- * `/api/admin-backend` (see `next.config.ts` → `ADMIN_API_PROXY_TARGET`, default 127.0.0.1:5001).
+ * `/api/admin-backend` (see `next.config.ts` → `ADMIN_API_PROXY_TARGET`, default 127.0.0.1:8080).
  */
 export function getAdminApiBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL?.trim();
@@ -40,7 +43,7 @@ function getBaseUrl(): string {
 function mapFetchNetworkError(error: unknown): never {
   if (error instanceof TypeError) {
     throw new Error(
-      "Could not reach the admin API. Start admin-backend (port 5001 by default), or set NEXT_PUBLIC_ADMIN_API_BASE_URL to your API URL.",
+      "Could not reach the admin API. Set ADMIN_API_PROXY_TARGET to your AWS incloser-node URL, or start the backend locally (port 8080).",
     );
   }
   throw error;
@@ -50,6 +53,7 @@ export type AdminLoginResult = {
   token: string;
   admin: {
     id: string;
+    username: string;
     email: string;
     full_name: string;
     role: string;
@@ -57,7 +61,11 @@ export type AdminLoginResult = {
 };
 
 /** Public login — does not send Authorization. */
-export async function adminLogin(payload: { email: string; password: string }): Promise<AdminLoginResult> {
+export async function adminLogin(payload: {
+  username?: string;
+  email?: string;
+  password: string;
+}): Promise<AdminLoginResult> {
   let response: Response;
   try {
     response = await fetch(`${getBaseUrl()}/auth/login`, {
@@ -135,6 +143,33 @@ export async function reconfirmAdminPassword(password: string): Promise<void> {
   if (!response.ok || json.ok === false) {
     throw new Error(json.message ?? "Password confirmation failed");
   }
+}
+
+export async function adminPost<T>(path: string, body: unknown = {}): Promise<T> {
+  const token = getAuthToken();
+  let response: Response;
+  try {
+    response = await fetch(`${getBaseUrl()}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch (e) {
+    mapFetchNetworkError(e);
+  }
+
+  const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string };
+  if (!response.ok) {
+    throw new Error(json.message ?? `Request failed with status ${response.status}`);
+  }
+  if (!json.data) {
+    throw new Error("Malformed API response: missing data");
+  }
+  return json.data;
 }
 
 export async function adminPatch<T>(path: string, body: unknown): Promise<T> {

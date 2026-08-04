@@ -1,22 +1,17 @@
 import jwt from "jsonwebtoken";
-import type { AdminRole } from "@incloser/shared-types";
+import type { AdminRole, AdminUserAccount } from "@incloser/shared-types";
 import { getEnv } from "../config/env.js";
-import { verifyPassword } from "../lib/password.js";
+import { assertAdminRole } from "../lib/adminRoles.js";
+import { hashPassword, verifyPassword } from "../lib/password.js";
+import { isMissingRelationError, pgErrorText } from "../lib/supabase-errors.js";
 import { getSupabaseAdminClient } from "../lib/supabase.js";
 import { AuthLoginError } from "./auth.errors.js";
-
-const ADMIN_ROLES: ReadonlySet<string> = new Set<AdminRole>([
-  "super_admin",
-  "moderator",
-  "verification_admin",
-  "finance_admin",
-  "support_admin",
-]);
 
 export type AdminLoginPayload = {
   token: string;
   admin: {
     id: string;
+    username: string;
     email: string;
     full_name: string;
     role: AdminRole;
@@ -25,52 +20,110 @@ export type AdminLoginPayload = {
 
 type AdminUserRow = {
   id: string;
+  username: string | null;
   email: string;
   password_hash: string;
   full_name: string | null;
   role: string;
   is_active: boolean;
+  created_at: string;
+  updated_at: string;
 };
+
+function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function assertAdminRole(role: string): AdminRole {
-  if (!ADMIN_ROLES.has(role)) {
-    throw new AuthLoginError("Invalid admin configuration for this account.", 500);
-  }
-  return role as AdminRole;
+function internalEmailForUsername(username: string): string {
+  return `${username}@incloser.internal`;
 }
 
-export const authService = {
-  async login(email: string, password: string): Promise<AdminLoginPayload> {
-    const env = getEnv();
-    if (env.supabaseUsesAnonKey) {
-      throw new AuthLoginError(
-        "Admin login is not configured: set SUPABASE_SERVICE_ROLE_KEY so the server can read admin_users (anon key cannot access this table).",
-        503,
-      );
-    }
+function mapAccount(row: AdminUserRow): AdminUserAccount {
+  return {
+    id: row.id,
+    username: row.username?.trim() ?? row.email.split("@")[0] ?? "",
+    email: row.email,
+    fullName: row.full_name?.trim() ?? "",
+    role: assertAdminRole(row.role),
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
-    const normalized = normalizeEmail(email);
-    if (!normalized) {
-      throw new AuthLoginError("Invalid credentials", 401);
-    }
+function signToken(row: Pick<AdminUserRow, "id" | "email" | "username" | "role">): string {
+  const username = row.username?.trim() ?? "";
+  return jwt.sign(
+    { sub: row.id, email: row.email, username, role: row.role },
+    getEnv().JWT_SECRET,
+    { expiresIn: "12h" },
+  );
+}
 
-    const supabase = getSupabaseAdminClient();
+async function findAdminByCredential(credential: {
+  username?: string;
+  email?: string;
+}): Promise<AdminUserRow | null> {
+  const supabase = getSupabaseAdminClient();
 
+  if (credential.username) {
+    const normalized = normalizeUsername(credential.username);
     const { data, error } = await supabase
       .from("admin_users")
-      .select("id,email,password_hash,full_name,role,is_active")
+      .select("id,username,email,password_hash,full_name,role,is_active,created_at,updated_at")
+      .eq("username", normalized)
+      .maybeSingle<AdminUserRow>();
+
+    if (error) {
+      if (isMissingRelationError(error)) {
+        throw new AuthLoginError(
+          "Admin login requires the username column. Run supabase/admin_users_username.sql.",
+          503,
+        );
+      }
+      console.error("[auth] admin_users username query", pgErrorText(error));
+      throw new AuthLoginError("Could not verify credentials. Try again later.", 503);
+    }
+    if (data) return data;
+  }
+
+  if (credential.email) {
+    const normalized = normalizeEmail(credential.email);
+    const { data, error } = await supabase
+      .from("admin_users")
+      .select("id,username,email,password_hash,full_name,role,is_active,created_at,updated_at")
       .eq("email", normalized)
       .maybeSingle<AdminUserRow>();
 
     if (error) {
-      console.error("[auth] admin_users query", error);
+      console.error("[auth] admin_users email query", pgErrorText(error));
       throw new AuthLoginError("Could not verify credentials. Try again later.", 503);
     }
+    return data;
+  }
 
+  return null;
+}
+
+export const authService = {
+  async login(credential: { username?: string; email?: string }, password: string): Promise<AdminLoginPayload> {
+    const env = getEnv();
+    if (env.supabaseUsesAnonKey) {
+      throw new AuthLoginError(
+        "Admin login is not configured: set SUPABASE_SERVICE_ROLE_KEY so the server can read admin_users.",
+        503,
+      );
+    }
+
+    if (!credential.username?.trim() && !credential.email?.trim()) {
+      throw new AuthLoginError("Invalid credentials", 401);
+    }
+
+    const data = await findAdminByCredential(credential);
     if (!data) {
       throw new AuthLoginError("Invalid credentials", 401);
     }
@@ -84,13 +137,19 @@ export const authService = {
       throw new AuthLoginError("Invalid credentials", 401);
     }
 
-    const role = assertAdminRole(data.role);
-    const token = jwt.sign({ sub: data.id, email: data.email, role }, getEnv().JWT_SECRET, { expiresIn: "12h" });
+    let role: AdminRole;
+    try {
+      role = assertAdminRole(data.role);
+    } catch {
+      throw new AuthLoginError("Invalid admin configuration for this account.", 500);
+    }
+    const token = signToken(data);
 
     return {
       token,
       admin: {
         id: data.id,
+        username: data.username?.trim() ?? data.email.split("@")[0] ?? "",
         email: data.email,
         full_name: data.full_name?.trim() ?? "",
         role,
@@ -98,12 +157,29 @@ export const authService = {
     };
   },
 
-  /** Re-check password for the signed-in admin (step-up before sensitive actions). */
+  async getProfile(adminId: string): Promise<AdminUserAccount> {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("admin_users")
+      .select("id,username,email,full_name,role,is_active,created_at,updated_at")
+      .eq("id", adminId)
+      .maybeSingle<AdminUserRow>();
+
+    if (error || !data) {
+      throw new AuthLoginError("Admin account not found", 404);
+    }
+    if (!data.is_active) {
+      throw new AuthLoginError("This account has been deactivated.", 403);
+    }
+
+    return mapAccount(data);
+  },
+
   async reconfirmPassword(adminId: string, password: string): Promise<void> {
     const env = getEnv();
     if (env.supabaseUsesAnonKey) {
       throw new AuthLoginError(
-        "Admin verification is not configured: set SUPABASE_SERVICE_ROLE_KEY so the server can read admin_users.",
+        "Admin verification is not configured: set SUPABASE_SERVICE_ROLE_KEY.",
         503,
       );
     }
@@ -132,3 +208,5 @@ export const authService = {
     }
   },
 };
+
+export { normalizeUsername, internalEmailForUsername, mapAccount };

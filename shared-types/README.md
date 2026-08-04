@@ -18,6 +18,8 @@ Exports include:
 - `WithdrawalItem`
 - `TransactionItem`
 - `CmsBanner`
+- `CmsTutorialVideo`
+- `CmsNoticeBoardItem`
 - `FaqItem`
 - `AppSettings`
 - `AuditLogItem`

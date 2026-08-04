@@ -58,17 +58,16 @@ export default function FinanceRevenuePage() {
   const kpis = useMemo(() => {
     if (!data) return [];
     return [
-      { label: "Gross revenue (30d)", value: formatInrBig(data.gross30d), delta: "From admin API", tone: "success" as const },
-      { label: "Net revenue (30d)", value: formatInrBig(data.net30d), delta: "From admin API", tone: "success" as const },
-      { label: "Token sales volume", value: formatInrBig(data.tokenSales30d), delta: "From admin API", tone: "info" as const },
-      { label: "Platform take rate", value: `${data.takeRatePercent}%`, delta: "From admin API", tone: "info" as const },
+      { label: "Gross revenue (30d)", value: formatInrBig(data.gross30d), delta: "Session charges", tone: "success" as const },
+      { label: "Net revenue (30d)", value: formatInrBig(data.net30d), delta: "After model payouts", tone: "success" as const },
+      { label: "Token sales volume", value: formatInrBig(data.tokenSales30d), delta: "Wallet top-ups", tone: "info" as const },
+      { label: "Platform take rate", value: `${data.takeRatePercent}%`, delta: "From ledger", tone: "info" as const },
     ];
   }, [data]);
 
-  // TODO: Add narrative `notes[]` to FinanceRevenuePayload + backend when finance wants curated commentary in-app.
   const insightNotes = [
-    "Trends below are driven by the admin API payload (replace backend source with warehouse/ledger data when ready).",
-    "Payout metrics are computed from the same snapshot as KPIs.",
+    "Figures are computed from wallet_transactions in Supabase (last 30 days).",
+    "Gross = session charges; net = gross minus model_earning credits; token sales = top-ups.",
   ];
 
   return (
@@ -121,7 +120,7 @@ export default function FinanceRevenuePage() {
                   <h2 className="text-heading-2 text-[var(--text-primary)]">Payout summary</h2>
                   <p className="text-body-sm text-[var(--text-muted)]">Cash movement signals for finance ops.</p>
                 </div>
-                <StatusBadge label="From admin API" variant="info" />
+                <StatusBadge label="Live ledger" variant="info" />
               </div>
 
               <div className="mt-5 grid gap-3 md:grid-cols-4">

@@ -5,4 +5,5 @@ import { requireAuth } from "../../middleware/auth.js";
 export const authRoutes = Router();
 
 authRoutes.post("/auth/login", authController.login);
+authRoutes.get("/auth/me", requireAuth, authController.me);
 authRoutes.post("/auth/reconfirm", requireAuth, authController.reconfirm);

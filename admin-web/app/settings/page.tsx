@@ -14,6 +14,7 @@ type FeatureToggles = {
   maintenanceMode: boolean;
   walletTopUps: boolean;
   modelSelfServe: boolean;
+  afterCallRating: boolean;
 };
 
 type SettingsState = {
@@ -28,7 +29,8 @@ type SettingsState = {
   textRateInr: string;
   voiceRateInr: string;
   videoRateInr: string;
-  modelSharePercent: string;
+  platformCommissionPercent: string;
+  fixedChargeInr: string;
 };
 
 const initialSettings: SettingsState = {
@@ -42,13 +44,15 @@ const initialSettings: SettingsState = {
     maintenanceMode: false,
     walletTopUps: true,
     modelSelfServe: true,
+    afterCallRating: true,
   },
   supportEmail: "support@incloser.app",
   supportPhone: "+91 80000 00000",
   textRateInr: "2",
   voiceRateInr: "5",
   videoRateInr: "10",
-  modelSharePercent: "85",
+  platformCommissionPercent: "10",
+  fixedChargeInr: "0.50",
 };
 
 function apiToState(api: AppSettings): SettingsState {
@@ -65,13 +69,15 @@ function apiToState(api: AppSettings): SettingsState {
       maintenanceMode: api.featureToggles.maintenanceMode ?? false,
       walletTopUps: api.featureToggles.walletTopUps ?? true,
       modelSelfServe: api.featureToggles.modelSelfServe ?? true,
+      afterCallRating: api.featureToggles.afterCallRating ?? true,
     },
     supportEmail: lines[0] ?? "",
     supportPhone: lines.slice(1).join(" ").trim() || "",
     textRateInr: String(api.billing?.textRateInrPerMin ?? 2),
     voiceRateInr: String(api.billing?.voiceRateInrPerMin ?? 5),
     videoRateInr: String(api.billing?.videoRateInrPerMin ?? 10),
-    modelSharePercent: String(api.billing?.modelSharePercent ?? 85),
+    platformCommissionPercent: String(api.billing?.platformCommissionPercent ?? 10),
+    fixedChargeInr: String(api.billing?.fixedChargeInr ?? 0.5),
   };
 }
 
@@ -97,7 +103,9 @@ function stateToPayload(s: SettingsState): AppSettings {
       textRateInrPerMin: Number.parseFloat(s.textRateInr) || 2,
       voiceRateInrPerMin: Number.parseFloat(s.voiceRateInr) || 5,
       videoRateInrPerMin: Number.parseFloat(s.videoRateInr) || 10,
-      modelSharePercent: Number.parseFloat(s.modelSharePercent) || 85,
+      modelSharePercent: 85,
+      platformCommissionPercent: Number.parseFloat(s.platformCommissionPercent) || 10,
+      fixedChargeInr: Number.parseFloat(s.fixedChargeInr) || 0.5,
       reserveMinutes: 3,
       disconnectMinutes: 1,
     },
@@ -307,13 +315,13 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-heading-2 text-[var(--text-primary)]">Per-minute rates (INR)</h2>
                 <p className="text-body-sm text-[var(--text-muted)]">
-                  Charged to male users at the start of each minute. Models receive {settings.modelSharePercent}% of
-                  full minutes on session end.
+                  Male users are charged at the start of each minute (ceil). Models are paid for full
+                  minutes only (floor) minus platform commission and a fixed charge per session.
                 </p>
               </div>
               <StatusBadge label="Wallet billing" variant="info" />
             </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Text chat (₹/min)</label>
                 <input
@@ -342,15 +350,28 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Model share (%)</label>
+                <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Platform commission (%)</label>
                 <input
                   className="soft-input"
                   inputMode="decimal"
-                  value={settings.modelSharePercent}
-                  onChange={(e) => setSettings((s) => ({ ...s, modelSharePercent: e.target.value }))}
+                  value={settings.platformCommissionPercent}
+                  onChange={(e) => setSettings((s) => ({ ...s, platformCommissionPercent: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Fixed charge (₹)</label>
+                <input
+                  className="soft-input"
+                  inputMode="decimal"
+                  value={settings.fixedChargeInr}
+                  onChange={(e) => setSettings((s) => ({ ...s, fixedChargeInr: e.target.value }))}
                 />
               </div>
             </div>
+            <p className="mt-3 text-xs text-[var(--text-muted)]">
+              Example: 1:30 voice call → male pays 2 min × ₹{settings.voiceRateInr || "5"}; model earns 1 min × rate
+              minus {settings.platformCommissionPercent || "10"}% commission and ₹{settings.fixedChargeInr || "0.50"} fixed.
+            </p>
           </CardShell>
 
           <CardShell>
@@ -472,6 +493,12 @@ export default function SettingsPage() {
                 description="Allows models to update limited profile fields without review."
                 checked={settings.toggles.modelSelfServe}
                 onChange={(next) => setSettings((s) => ({ ...s, toggles: { ...s.toggles, modelSelfServe: next } }))}
+              />
+              <Toggle
+                label="After-call rating"
+                description="Shows a 5-star rating step on the male call summary screen after each call."
+                checked={settings.toggles.afterCallRating}
+                onChange={(next) => setSettings((s) => ({ ...s, toggles: { ...s.toggles, afterCallRating: next } }))}
               />
             </div>
           </CardShell>

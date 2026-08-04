@@ -13,6 +13,7 @@ export function Topbar() {
   const isVerificationProfile = pathname.startsWith("/verification/profile");
   const isVerificationAudio = pathname.startsWith("/verification/audio");
   const isWithdrawals = pathname.startsWith("/withdrawals");
+  const isFinanceUnitPrices = pathname.startsWith("/finance/unit-prices");
   const isFinanceWallets = pathname.startsWith("/finance/wallets");
   const isFinanceRevenue = pathname.startsWith("/finance/revenue");
   const isCmsBanners = pathname.startsWith("/cms/banners");
@@ -29,7 +30,9 @@ export function Topbar() {
         ? "Users"
         : isWithdrawals
           ? "Withdrawals"
-          : isFinanceWallets
+          : isFinanceUnitPrices
+            ? "Finance · Unit prices"
+            : isFinanceWallets
             ? "Finance · Wallets"
             : isFinanceRevenue
               ? "Finance · Revenue"
@@ -60,7 +63,9 @@ export function Topbar() {
         ? "Review female profiles, verification states, and earnings signals."
         : isWithdrawals
           ? "Approve, reject, mark paid, and keep finance audit trails tight."
-          : isFinanceWallets
+          : isFinanceUnitPrices
+            ? "Set per-minute text, voice, and video rates plus model payout fees."
+            : isFinanceWallets
             ? "Monitor wallet balances, velocity, and account states across the user base."
             : isFinanceRevenue
               ? "Track revenue momentum, token sales, and payout health in one finance view."
@@ -89,7 +94,9 @@ export function Topbar() {
         ? "Search models, cities, verification states..."
         : isWithdrawals
           ? "Search withdrawals, models, payout ids..."
-          : isFinanceWallets
+          : isFinanceUnitPrices
+            ? "Search unit price settings…"
+            : isFinanceWallets
             ? "Search wallets, ledgers, user ids..."
             : isFinanceRevenue
               ? "Search revenue drivers, SKUs, campaigns…"

@@ -21,7 +21,12 @@ export const requireAuth: RequestHandler = (req: Request, res: Response, next: N
 
   try {
     const payload = jwt.verify(token, getEnv().JWT_SECRET) as AdminJwtPayload;
-    const admin: AdminUser = { id: payload.sub, email: payload.email, role: payload.role };
+    const admin: AdminUser = {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      fullName: payload.username,
+    };
     (req as RequestWithAdmin).admin = admin;
     return next();
   } catch {
