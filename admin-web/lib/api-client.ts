@@ -27,24 +27,43 @@ export function clearAdminAuth(): void {
 }
 
 /**
- * When `NEXT_PUBLIC_ADMIN_API_BASE_URL` is unset, use the Next.js rewrite target
- * `/api/admin-backend` (see `next.config.ts` → `ADMIN_API_PROXY_TARGET`, default 127.0.0.1:8080).
+ * Admin API base URL for browser `fetch` calls.
+ *
+ * Default: same-origin `/api/admin-backend` (embedded Express on Vercel, or rewrite via
+ * `ADMIN_API_PROXY_TARGET`). Only use `NEXT_PUBLIC_ADMIN_API_BASE_URL` when the browser
+ * must call an external origin directly (requires CORS on the backend).
  */
 export function getAdminApiBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL?.trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  return "/api/admin-backend";
+  if (!explicit) return "/api/admin-backend";
+
+  const normalized = explicit.replace(/\/$/, "");
+
+  if (typeof window !== "undefined") {
+    const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(normalized);
+    const onLocalDev =
+      /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(window.location.origin) ||
+      window.location.hostname === "localhost";
+    // Common misconfig: NEXT_PUBLIC=http://127.0.0.1:8080 baked into a Vercel production build.
+    if (isLocalTarget && !onLocalDev) return "/api/admin-backend";
+  }
+
+  return normalized;
 }
 
 function getBaseUrl(): string {
   return getAdminApiBaseUrl();
 }
 
-function mapFetchNetworkError(error: unknown): never {
+function mapFetchNetworkError(error: unknown, url: string): never {
   if (error instanceof TypeError) {
-    throw new Error(
-      "Could not reach the admin API. Set ADMIN_API_PROXY_TARGET to your AWS incloser-node URL, or start the backend locally (port 8080).",
-    );
+    const hint =
+      url.startsWith("http://localhost") || url.startsWith("http://127.0.0.1")
+        ? "The app is calling a local backend URL. Remove NEXT_PUBLIC_ADMIN_API_BASE_URL from Vercel, or start the backend on that port."
+        : url.startsWith("http")
+          ? "The browser cannot reach the configured backend URL. Remove NEXT_PUBLIC_ADMIN_API_BASE_URL to use /api/admin-backend on this site, or fix ADMIN_API_PROXY_TARGET / AWS incloser-node."
+          : "Could not reach /api/admin-backend on this site. If using AWS, set ADMIN_API_PROXY_TARGET on Vercel to your incloser-node URL and redeploy. Otherwise set JWT_SECRET, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY on Vercel for the embedded backend.";
+    throw new Error(`${hint} (tried: ${url})`);
   }
   throw error;
 }
@@ -66,16 +85,17 @@ export async function adminLogin(payload: {
   email?: string;
   password: string;
 }): Promise<AdminLoginResult> {
+  const url = `${getBaseUrl()}/auth/login`;
   let response: Response;
   try {
-    response = await fetch(`${getBaseUrl()}/auth/login`, {
+    response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       cache: "no-store",
     });
   } catch (e) {
-    mapFetchNetworkError(e);
+    mapFetchNetworkError(e, url);
   }
 
   let json: Partial<AdminApiEnvelope<AdminLoginResult>> & { ok?: boolean; message?: string };
@@ -96,9 +116,10 @@ export async function adminLogin(payload: {
 
 export async function adminGet<T>(path: string): Promise<T> {
   const token = getAuthToken();
+  const url = `${getBaseUrl()}${path}`;
   let response: Response;
   try {
-    response = await fetch(`${getBaseUrl()}${path}`, {
+    response = await fetch(url, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -107,7 +128,7 @@ export async function adminGet<T>(path: string): Promise<T> {
       cache: "no-store",
     });
   } catch (e) {
-    mapFetchNetworkError(e);
+    mapFetchNetworkError(e, url);
   }
 
   const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string; ok?: boolean };
@@ -124,9 +145,10 @@ export async function adminGet<T>(path: string): Promise<T> {
 export async function reconfirmAdminPassword(password: string): Promise<void> {
   const token = getAuthToken();
   if (!token) throw new Error("Not signed in");
+  const url = `${getBaseUrl()}/auth/reconfirm`;
   let response: Response;
   try {
-    response = await fetch(`${getBaseUrl()}/auth/reconfirm`, {
+    response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -136,7 +158,7 @@ export async function reconfirmAdminPassword(password: string): Promise<void> {
       cache: "no-store",
     });
   } catch (e) {
-    mapFetchNetworkError(e);
+    mapFetchNetworkError(e, url);
   }
 
   const json = (await response.json()) as Partial<AdminApiEnvelope<unknown>> & { message?: string };
@@ -147,9 +169,10 @@ export async function reconfirmAdminPassword(password: string): Promise<void> {
 
 export async function adminPost<T>(path: string, body: unknown = {}): Promise<T> {
   const token = getAuthToken();
+  const url = `${getBaseUrl()}${path}`;
   let response: Response;
   try {
-    response = await fetch(`${getBaseUrl()}${path}`, {
+    response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -159,7 +182,7 @@ export async function adminPost<T>(path: string, body: unknown = {}): Promise<T>
       cache: "no-store",
     });
   } catch (e) {
-    mapFetchNetworkError(e);
+    mapFetchNetworkError(e, url);
   }
 
   const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string; ok?: boolean };
@@ -174,9 +197,10 @@ export async function adminPost<T>(path: string, body: unknown = {}): Promise<T>
 
 export async function adminPatch<T>(path: string, body: unknown): Promise<T> {
   const token = getAuthToken();
+  const url = `${getBaseUrl()}${path}`;
   let response: Response;
   try {
-    response = await fetch(`${getBaseUrl()}${path}`, {
+    response = await fetch(url, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -186,7 +210,7 @@ export async function adminPatch<T>(path: string, body: unknown): Promise<T> {
       cache: "no-store",
     });
   } catch (e) {
-    mapFetchNetworkError(e);
+    mapFetchNetworkError(e, url);
   }
 
   const json = (await response.json()) as Partial<AdminApiEnvelope<T>> & { message?: string; ok?: boolean };
