@@ -117,19 +117,36 @@ export const withdrawalsService = {
 
   async reject(id: string): Promise<WithdrawalView | null> {
     const supabase = getSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("withdrawals")
-      .update({ status: "rejected" })
-      .eq("id", id)
-      .select("id,model_id,amount,status,requested_at,payout_method,risk,bank_masked,upi_id,finance_note,paid_txn_id,paid_via,created_at")
-      .maybeSingle();
-    if (error) {
-      if (isMissingRelationError(error)) throw new Error(`Withdrawals are not available in this database (${pgErrorText(error)}).`);
-      throw new Error(`Withdrawal reject failed: ${pgErrorText(error)}`);
+    const { data: rpcData, error: rpcError } = await supabase.rpc("admin_reject_model_withdrawal", {
+      p_withdrawal_id: id,
+    });
+    if (rpcError) {
+      if (isMissingRelationError(rpcError)) {
+        throw new Error(`Withdrawals are not available in this database (${pgErrorText(rpcError)}).`);
+      }
+      // Fallback for DBs without the reject RPC yet
+      console.warn("[withdrawals] reject RPC unavailable, falling back to status update:", pgErrorText(rpcError));
+      const { data, error } = await supabase
+        .from("withdrawals")
+        .update({ status: "rejected" })
+        .eq("id", id)
+        .select("id,model_id,amount,status,requested_at,payout_method,risk,bank_masked,upi_id,finance_note,paid_txn_id,paid_via,created_at")
+        .maybeSingle();
+      if (error) {
+        if (isMissingRelationError(error)) throw new Error(`Withdrawals are not available in this database (${pgErrorText(error)}).`);
+        throw new Error(`Withdrawal reject failed: ${pgErrorText(error)}`);
+      }
+      if (!data) return null;
+      const nicknameByModelId = await fetchNicknameMap([data.model_id]);
+      return mapRow(data, nicknameByModelId);
     }
-    if (!data) return null;
-    const nicknameByModelId = await fetchNicknameMap([data.model_id]);
-    return mapRow(data, nicknameByModelId);
+
+    const result = (rpcData ?? {}) as { ok?: boolean; message?: string };
+    if (result.ok === false) {
+      throw new Error(result.message || "Failed to reject withdrawal");
+    }
+
+    return this.detail(id);
   },
 
   async markPaid(id: string, txnId: string, paymentMethod: string): Promise<WithdrawalView | null> {

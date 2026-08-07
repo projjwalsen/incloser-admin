@@ -7,6 +7,7 @@ import type {
   AgencyWithdrawalRequest,
   AgencyWithdrawalStatus,
 } from "@incloser/shared-types";
+import { assertServiceRoleAccess, missingAgencyTablesMessage } from "../lib/requireServiceRole.js";
 import { hashPassword } from "../lib/password.js";
 import { isMissingRelationError, pgErrorText } from "../lib/supabase-errors.js";
 import { getSupabaseAdminClient } from "../lib/supabase.js";
@@ -146,6 +147,7 @@ export function computeAgencyPayoutBreakdown(input: {
 
 export const agenciesService = {
   async list(): Promise<AgencySummary[]> {
+    assertServiceRoleAccess("Agency list");
     const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase
       .from("agencies")
@@ -156,8 +158,7 @@ export const agenciesService = {
 
     if (error) {
       if (isMissingRelationError(error)) {
-        console.warn("[agencies] list: table missing — run agency_management.sql");
-        return [];
+        throw new Error(missingAgencyTablesMessage());
       }
       throw new Error(`Agencies list failed: ${pgErrorText(error)}`);
     }
@@ -172,6 +173,7 @@ export const agenciesService = {
     password: string;
     commissionPercent?: number;
   }): Promise<AgencySummary> {
+    assertServiceRoleAccess("Agency create");
     const name = input.name.trim();
     if (!name) throw new Error("Agency name is required");
     if (!input.password || input.password.length < 6) {
@@ -208,7 +210,12 @@ export const agenciesService = {
 
     if (error) {
       if (isMissingRelationError(error)) {
-        throw new Error("Agency tables missing: run supabase/agency_management.sql");
+        throw new Error(missingAgencyTablesMessage());
+      }
+      if (error.code === "42501") {
+        throw new Error(
+          "Create agency blocked by Supabase RLS. Set SUPABASE_SERVICE_ROLE_KEY on the server (not the anon key).",
+        );
       }
       throw new Error(`Create agency failed: ${pgErrorText(error)}`);
     }

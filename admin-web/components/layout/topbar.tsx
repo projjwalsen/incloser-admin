@@ -20,6 +20,9 @@ export function Topbar() {
   const isCmsAvatars = pathname.startsWith("/cms/avatars");
   const isCmsFaq = pathname.startsWith("/cms/faq");
   const isCmsPolicies = pathname.startsWith("/cms/policies");
+  const isCmsVoiceScripts = pathname.startsWith("/cms/audio-verification-scripts");
+  const isCmsTutorials = pathname.startsWith("/cms/female-tutorials");
+  const isCmsNoticeBoard = pathname.startsWith("/cms/notice-board");
   const isSettings = pathname.startsWith("/settings");
   const isAuditLogs = pathname.startsWith("/audit-logs");
   const title = isModelDetail
@@ -38,6 +41,12 @@ export function Topbar() {
               ? "Finance · Revenue"
               : isCmsBanners
                 ? "CMS · Banners"
+                : isCmsVoiceScripts
+                  ? "CMS · Voice scripts"
+                : isCmsTutorials
+                  ? "CMS · Model videos"
+                : isCmsNoticeBoard
+                  ? "CMS · Notice board"
                 : isCmsAvatars
                   ? "CMS · Avatars"
                 : isCmsFaq
@@ -71,6 +80,12 @@ export function Topbar() {
               ? "Track revenue momentum, token sales, and payout health in one finance view."
               : isCmsBanners
                 ? "Manage promotional surfaces with crisp editorial controls."
+                : isCmsVoiceScripts
+                  ? "Edit the lines models speak during audio verification, per language."
+                : isCmsTutorials
+                  ? "Publish tutorial videos for the model home carousel."
+                : isCmsNoticeBoard
+                  ? "Update notice board cards shown on the model home screen."
                 : isCmsAvatars
                   ? "Curate onboarding avatars for male and female users."
                 : isCmsFaq

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { avatarsController } from "../../controllers/avatars.controller.js";
+import { audioVerificationScriptsController } from "../../controllers/audioVerificationScripts.controller.js";
 import { cmsController } from "../../controllers/cms.controller.js";
 import { femaleTutorialsController } from "../../controllers/femaleTutorials.controller.js";
 import { noticeBoardController } from "../../controllers/noticeBoard.controller.js";
@@ -44,3 +45,9 @@ cmsRoutes.get("/cms/notice-board", noticeBoardController.list);
 cmsRoutes.post("/cms/notice-board", upload.single("image"), noticeBoardController.create);
 cmsRoutes.patch("/cms/notice-board/:id", upload.single("image"), noticeBoardController.update);
 cmsRoutes.delete("/cms/notice-board/:id", noticeBoardController.remove);
+
+cmsRoutes.get("/cms/audio-verification-scripts", audioVerificationScriptsController.list);
+cmsRoutes.patch(
+  "/cms/audio-verification-scripts/:languageCode",
+  audioVerificationScriptsController.update,
+);

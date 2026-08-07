@@ -31,7 +31,7 @@ const nextConfig: NextConfig = {
   /**
    * Two modes:
    *  - When `ADMIN_API_PROXY_TARGET` is set, proxy the browser's `/api/admin-backend/*`
-   *    to a separately deployed admin-backend (Option A).
+   *    to the deployed incloser-node backend on AWS (recommended for production).
    *  - When unset, fall through so the embedded `pages/api/admin-backend/[[...slug]].ts`
    *    handles requests in-process (Option B — default).
    */

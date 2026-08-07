@@ -28,18 +28,18 @@ export function AdminShell({ children }: PropsWithChildren) {
       }
 
       let role = getAdminRole();
-      if (!role) {
-        try {
-          const profile = await fetchAdminProfile();
-          setAdminSession({
-            token,
-            role: profile.role,
-            username: profile.username,
-            fullName: profile.fullName,
-            email: profile.email,
-          });
-          role = profile.role;
-        } catch {
+      try {
+        const profile = await fetchAdminProfile();
+        setAdminSession({
+          token,
+          role: profile.role,
+          username: profile.username,
+          fullName: profile.fullName,
+          email: profile.email,
+        });
+        role = profile.role;
+      } catch {
+        if (!role) {
           router.replace("/login");
           return;
         }

@@ -2,14 +2,12 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import {
   ADMIN_USER_MANAGER_ROLES,
-  AGENCY_FINANCE_ROLES,
-  AGENCY_OPERATIONS_ROLES,
   MODELS_READ_ROLES,
   VERIFICATION_ROLES,
 } from "../lib/adminRoles.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { adminUsersRoutes } from "./modules/adminUsers.routes.js";
-import { agenciesCrudRoutes, agenciesFinanceRoutes } from "./modules/agencies.routes.js";
+import { agenciesRoutes } from "./modules/agencies.routes.js";
 import { agencyAuthRoutes, agencyPortalRoutes } from "./modules/agencyPortal.routes.js";
 import { auditLogsRoutes } from "./modules/audit-logs.routes.js";
 import { authRoutes } from "./modules/auth.routes.js";
@@ -65,17 +63,18 @@ adminRouter.get("/", (_req, res) => {
       "/settings",
       "/audit-logs",
       "/integrations/supabase/ping",
+      "/integrations/supabase/admin-setup",
     ],
   });
 });
 
 adminRouter.use(dashboardRoutes);
+/** Per-route RBAC — mount before blanket `requireRole` stacks so operations_admin can reach /agencies. */
+adminRouter.use(agenciesRoutes);
 adminRouter.use(requireRole("super_admin", "moderator", "finance_admin", "support_admin"), usersRoutes);
 adminRouter.use(requireRole(...MODELS_READ_ROLES), modelsRoutes);
 adminRouter.use(requireRole(...VERIFICATION_ROLES), verificationRoutes);
 adminRouter.use(requireRole("super_admin", "finance_admin"), withdrawalsRoutes);
-adminRouter.use(requireRole(...AGENCY_OPERATIONS_ROLES), agenciesCrudRoutes);
-adminRouter.use(requireRole(...AGENCY_FINANCE_ROLES), agenciesFinanceRoutes);
 adminRouter.use(requireRole("super_admin", "finance_admin"), financeRoutes);
 adminRouter.use(requireRole("super_admin", "moderator"), cmsRoutes);
 adminRouter.use(requireRole("super_admin"), settingsRoutes);

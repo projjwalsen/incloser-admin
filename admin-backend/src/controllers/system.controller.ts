@@ -13,4 +13,13 @@ export const systemController = {
       return fail(res, `Supabase ping error: ${message}`, 502);
     }
   },
+
+  async supabaseAdminSetup(_req: Request, res: Response) {
+    try {
+      return ok(res, await supabaseHealthService.adminSetup());
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      return fail(res, `Admin setup check failed: ${message}`, 502);
+    }
+  },
 };
