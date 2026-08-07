@@ -1,6 +1,6 @@
-# InCloser Admin Web (Foundation)
+# InCloser Admin Web
 
-Fresh admin frontend scaffold for the CMS rebuild.
+Admin CMS (Next.js) with embedded Express API on Vercel, or proxy to incloser-node on AWS.
 
 ## Stack
 
