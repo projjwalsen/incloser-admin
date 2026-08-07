@@ -12,12 +12,20 @@ import { SecondaryButton } from "@/components/ui/secondary-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TableShell } from "@/components/ui/table-shell";
 import { fetchAgencyDetail, updateAgency } from "@/lib/agencies-api";
+import {
+  canEditAgencyCommission,
+  canManageAgencyPayouts,
+  getAdminRole,
+} from "@/lib/admin-session";
 
 function formatInr(n: number) {
   return `₹ ${Math.round(n).toLocaleString("en-IN")}`;
 }
 
 export default function AgencyDetailPage() {
+  const role = getAdminRole();
+  const showPayoutSections = canManageAgencyPayouts(role);
+  const showCommissionField = canEditAgencyCommission(role);
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const [data, setData] = useState<AgencyDetail | null>(null);
@@ -56,7 +64,7 @@ export default function AgencyDetailPage() {
       setError(null);
       await updateAgency(id, {
         name,
-        commissionPercent: Number(commissionPercent),
+        ...(showCommissionField ? { commissionPercent: Number(commissionPercent) } : {}),
         ...(password ? { password } : {}),
       });
       setPassword("");
@@ -146,17 +154,24 @@ export default function AgencyDetailPage() {
                   Name
                   <input className="soft-input mt-1" value={name} onChange={(e) => setName(e.target.value)} />
                 </label>
-                <label className="text-sm font-semibold text-[var(--text-secondary)]">
-                  Commission %
-                  <input
-                    className="soft-input mt-1"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={commissionPercent}
-                    onChange={(e) => setCommissionPercent(e.target.value)}
-                  />
-                </label>
+                {showCommissionField ? (
+                  <label className="text-sm font-semibold text-[var(--text-secondary)]">
+                    Commission %
+                    <input
+                      className="soft-input mt-1"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={commissionPercent}
+                      onChange={(e) => setCommissionPercent(e.target.value)}
+                    />
+                  </label>
+                ) : (
+                  <label className="text-sm font-semibold text-[var(--text-secondary)]">
+                    Commission %
+                    <input className="soft-input mt-1" value={`${data.commissionPercent}%`} readOnly disabled />
+                  </label>
+                )}
                 <label className="text-sm font-semibold text-[var(--text-secondary)] md:col-span-2">
                   Reset password (optional)
                   <input
@@ -212,92 +227,96 @@ export default function AgencyDetailPage() {
               </div>
             </TableShell>
 
-            <div className="mt-4">
-              <TableShell title="Commission ledger" subtitle="Credits from model withdrawals">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[800px] text-left text-sm">
-                    <thead className="bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
-                      <tr>
-                        <th className="px-5 py-4 font-semibold">Date</th>
-                        <th className="px-5 py-4 font-semibold">Model</th>
-                        <th className="px-5 py-4 font-semibold">Gross withdrawal</th>
-                        <th className="px-5 py-4 font-semibold">Rate</th>
-                        <th className="px-5 py-4 font-semibold">Commission</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.recentCommissions.length === 0 ? (
-                        <tr>
-                          <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={5}>
-                            No commission entries yet (credited when models withdraw).
-                          </td>
-                        </tr>
-                      ) : (
-                        data.recentCommissions.map((c) => (
-                          <tr key={c.id} className="border-t border-[#eef2ff]">
-                            <td className="px-5 py-4">
-                              {new Date(c.createdAt).toLocaleString("en-IN")}
-                            </td>
-                            <td className="px-5 py-4">{c.modelName}</td>
-                            <td className="px-5 py-4">{formatInr(c.grossWithdrawalInr)}</td>
-                            <td className="px-5 py-4">{c.commissionPercent}%</td>
-                            <td className="px-5 py-4 font-semibold">{formatInr(c.commissionInr)}</td>
+            {showPayoutSections ? (
+              <>
+                <div className="mt-4">
+                  <TableShell title="Commission ledger" subtitle="Credits from model withdrawals">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[800px] text-left text-sm">
+                        <thead className="bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
+                          <tr>
+                            <th className="px-5 py-4 font-semibold">Date</th>
+                            <th className="px-5 py-4 font-semibold">Model</th>
+                            <th className="px-5 py-4 font-semibold">Gross withdrawal</th>
+                            <th className="px-5 py-4 font-semibold">Rate</th>
+                            <th className="px-5 py-4 font-semibold">Commission</th>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {data.recentCommissions.length === 0 ? (
+                            <tr>
+                              <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={5}>
+                                No commission entries yet (credited when models withdraw).
+                              </td>
+                            </tr>
+                          ) : (
+                            data.recentCommissions.map((c) => (
+                              <tr key={c.id} className="border-t border-[#eef2ff]">
+                                <td className="px-5 py-4">
+                                  {new Date(c.createdAt).toLocaleString("en-IN")}
+                                </td>
+                                <td className="px-5 py-4">{c.modelName}</td>
+                                <td className="px-5 py-4">{formatInr(c.grossWithdrawalInr)}</td>
+                                <td className="px-5 py-4">{c.commissionPercent}%</td>
+                                <td className="px-5 py-4 font-semibold">{formatInr(c.commissionInr)}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </TableShell>
                 </div>
-              </TableShell>
-            </div>
 
-            <div className="mt-4">
-              <TableShell title="Agency withdrawal requests" subtitle="Transfers requested by this agency">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] text-left text-sm">
-                    <thead className="bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
-                      <tr>
-                        <th className="px-5 py-4 font-semibold">Requested</th>
-                        <th className="px-5 py-4 font-semibold">Gross</th>
-                        <th className="px-5 py-4 font-semibold">Platform</th>
-                        <th className="px-5 py-4 font-semibold">TDS</th>
-                        <th className="px-5 py-4 font-semibold">Net</th>
-                        <th className="px-5 py-4 font-semibold">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.withdrawalRequests.length === 0 ? (
-                        <tr>
-                          <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={6}>
-                            No withdrawal requests.
-                          </td>
-                        </tr>
-                      ) : (
-                        data.withdrawalRequests.map((w) => (
-                          <tr key={w.id} className="border-t border-[#eef2ff]">
-                            <td className="px-5 py-4">
-                              {new Date(w.requestedAt).toLocaleString("en-IN")}
-                            </td>
-                            <td className="px-5 py-4">{formatInr(w.requestedAmountInr)}</td>
-                            <td className="px-5 py-4">{formatInr(w.platformChargeInr)}</td>
-                            <td className="px-5 py-4">{formatInr(w.tdsInr)}</td>
-                            <td className="px-5 py-4 font-semibold">{formatInr(w.netPayoutInr)}</td>
-                            <td className="px-5 py-4">
-                              <StatusBadge label={w.status} variant="info" />
-                            </td>
+                <div className="mt-4">
+                  <TableShell title="Agency withdrawal requests" subtitle="Transfers requested by this agency">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[900px] text-left text-sm">
+                        <thead className="bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
+                          <tr>
+                            <th className="px-5 py-4 font-semibold">Requested</th>
+                            <th className="px-5 py-4 font-semibold">Gross</th>
+                            <th className="px-5 py-4 font-semibold">Platform</th>
+                            <th className="px-5 py-4 font-semibold">TDS</th>
+                            <th className="px-5 py-4 font-semibold">Net</th>
+                            <th className="px-5 py-4 font-semibold">Status</th>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {data.withdrawalRequests.length === 0 ? (
+                            <tr>
+                              <td className="px-5 py-8 text-center text-[var(--text-muted)]" colSpan={6}>
+                                No withdrawal requests.
+                              </td>
+                            </tr>
+                          ) : (
+                            data.withdrawalRequests.map((w) => (
+                              <tr key={w.id} className="border-t border-[#eef2ff]">
+                                <td className="px-5 py-4">
+                                  {new Date(w.requestedAt).toLocaleString("en-IN")}
+                                </td>
+                                <td className="px-5 py-4">{formatInr(w.requestedAmountInr)}</td>
+                                <td className="px-5 py-4">{formatInr(w.platformChargeInr)}</td>
+                                <td className="px-5 py-4">{formatInr(w.tdsInr)}</td>
+                                <td className="px-5 py-4 font-semibold">{formatInr(w.netPayoutInr)}</td>
+                                <td className="px-5 py-4">
+                                  <StatusBadge label={w.status} variant="info" />
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-3">
+                      <Link href="/agencies/withdrawals" className="text-sm font-semibold text-[var(--brand-primary)]">
+                        Process all agency withdrawals →
+                      </Link>
+                    </div>
+                  </TableShell>
                 </div>
-                <div className="mt-3">
-                  <Link href="/agencies/withdrawals" className="text-sm font-semibold text-[var(--brand-primary)]">
-                    Process all agency withdrawals →
-                  </Link>
-                </div>
-              </TableShell>
-            </div>
+              </>
+            ) : null}
           </>
         ) : null}
       </PageContainer>

@@ -1,10 +1,15 @@
 import type { Request, Response } from "express";
+import type { AdminRole } from "@incloser/shared-types";
 import { createAuditLog } from "../services/audit-logs.service.js";
 import { agenciesService } from "../services/agencies.service.js";
 import { agencySettingsService } from "../services/agencySettings.service.js";
 import { fail, ok } from "../utils/http.js";
 
-type RequestWithAdmin = Request & { admin?: { id: string; email: string } };
+type RequestWithAdmin = Request & { admin?: { id: string; email: string; role: AdminRole } };
+
+function isSuperAdmin(req: Request): boolean {
+  return (req as RequestWithAdmin).admin?.role === "super_admin";
+}
 
 function parseId(v: string | string[] | undefined): string | null {
   if (typeof v === "string" && v.trim()) return v;
@@ -32,7 +37,9 @@ export const agenciesController = {
         name: String(body.name ?? ""),
         password: String(body.password ?? ""),
         commissionPercent:
-          body.commissionPercent != null ? Number(body.commissionPercent) : undefined,
+          isSuperAdmin(req) && body.commissionPercent != null
+            ? Number(body.commissionPercent)
+            : undefined,
       });
       const admin = (req as RequestWithAdmin).admin;
       if (admin) {
@@ -76,7 +83,9 @@ export const agenciesController = {
         name: body.name,
         password: body.password,
         commissionPercent:
-          body.commissionPercent != null ? Number(body.commissionPercent) : undefined,
+          isSuperAdmin(req) && body.commissionPercent != null
+            ? Number(body.commissionPercent)
+            : undefined,
         isActive: body.isActive,
       });
       const admin = (req as RequestWithAdmin).admin;

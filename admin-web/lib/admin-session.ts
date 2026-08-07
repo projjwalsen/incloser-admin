@@ -44,7 +44,24 @@ export function clearAdminSession(): void {
 }
 
 /** Routes restricted to super_admin in the CMS shell. */
-const SUPER_ADMIN_ONLY_PREFIXES = ["/settings/team", "/audit-logs"];
+const SUPER_ADMIN_ONLY_PREFIXES = [
+  "/settings/team",
+  "/audit-logs",
+  "/agencies/withdrawals",
+  "/agencies/settings",
+];
+
+export function isSuperAdminRole(role: AdminRole | null): boolean {
+  return role === "super_admin";
+}
+
+export function canManageAgencyPayouts(role: AdminRole | null): boolean {
+  return isSuperAdminRole(role);
+}
+
+export function canEditAgencyCommission(role: AdminRole | null): boolean {
+  return isSuperAdminRole(role);
+}
 
 /** Nav visibility by role — operations staff see agencies + verification only. */
 export function canAccessNav(href: string, role: AdminRole | null): boolean {
@@ -58,8 +75,6 @@ export function canAccessNav(href: string, role: AdminRole | null): boolean {
   const operationsAllowed = [
     "/dashboard",
     "/agencies",
-    "/agencies/withdrawals",
-    "/agencies/settings",
     "/verification/profile",
     "/verification/audio",
     "/models",

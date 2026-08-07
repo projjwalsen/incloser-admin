@@ -9,8 +9,14 @@ export const ADMIN_ROLES: ReadonlySet<string> = new Set<AdminRole>([
   "support_admin",
 ]);
 
-/** Roles that may manage agencies (create, edit, payouts, settings). */
-export const AGENCY_MANAGER_ROLES: AdminRole[] = ["super_admin", "operations_admin"];
+/** Roles that may create/edit agencies and view linked models. */
+export const AGENCY_OPERATIONS_ROLES: AdminRole[] = ["super_admin", "operations_admin"];
+
+/** @deprecated Use AGENCY_OPERATIONS_ROLES — kept for imports that meant CRUD access. */
+export const AGENCY_MANAGER_ROLES: AdminRole[] = AGENCY_OPERATIONS_ROLES;
+
+/** Super admin only: agency payout queue, global agency settings. */
+export const AGENCY_FINANCE_ROLES: AdminRole[] = ["super_admin"];
 
 /** Roles that may approve/reject model verification. */
 export const VERIFICATION_ROLES: AdminRole[] = [

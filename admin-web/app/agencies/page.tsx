@@ -12,12 +12,20 @@ import { SecondaryButton } from "@/components/ui/secondary-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TableShell } from "@/components/ui/table-shell";
 import { createAgency, fetchAgencies } from "@/lib/agencies-api";
+import {
+  canEditAgencyCommission,
+  canManageAgencyPayouts,
+  getAdminRole,
+} from "@/lib/admin-session";
 
 function formatInr(n: number) {
   return `₹ ${Math.round(n).toLocaleString("en-IN")}`;
 }
 
 export default function AgenciesPage() {
+  const role = getAdminRole();
+  const showPayouts = canManageAgencyPayouts(role);
+  const showCommissionField = canEditAgencyCommission(role);
   const [rows, setRows] = useState<AgencySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +81,7 @@ export default function AgenciesPage() {
       const created = await createAgency({
         name,
         password,
-        commissionPercent: Number(commissionPercent),
+        ...(showCommissionField ? { commissionPercent: Number(commissionPercent) } : {}),
       });
       setCreatedCode(created.code);
       setName("");
@@ -94,19 +102,23 @@ export default function AgenciesPage() {
           <div>
             <h1 className="text-heading-1 text-[var(--text-primary)]">Agency management</h1>
             <p className="mt-1 text-body-sm text-[var(--text-muted)]">
-              Create agencies, track commission earnings, and process agency transfers.
+              Create agencies, manage status, and view models linked to each agency code.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/agencies/withdrawals">
-              <SecondaryButton>Agency withdrawals</SecondaryButton>
-            </Link>
-            <Link href="/agencies/settings">
-              <SecondaryButton>
-                <Settings2 className="mr-1.5 h-4 w-4" />
-                Settings
-              </SecondaryButton>
-            </Link>
+            {showPayouts ? (
+              <Link href="/agencies/withdrawals">
+                <SecondaryButton>Agency withdrawals</SecondaryButton>
+              </Link>
+            ) : null}
+            {showPayouts ? (
+              <Link href="/agencies/settings">
+                <SecondaryButton>
+                  <Settings2 className="mr-1.5 h-4 w-4" />
+                  Settings
+                </SecondaryButton>
+              </Link>
+            ) : null}
             <SecondaryButton onClick={() => void load()}>
               <RefreshCw className="mr-1.5 h-4 w-4" />
               Refresh
@@ -276,18 +288,24 @@ export default function AgenciesPage() {
                       placeholder="Min 6 characters"
                     />
                   </label>
-                  <label className="block text-sm font-semibold text-[var(--text-secondary)]">
-                    Commission %
-                    <input
-                      className="soft-input mt-1"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      value={commissionPercent}
-                      onChange={(e) => setCommissionPercent(e.target.value)}
-                    />
-                  </label>
+                  {showCommissionField ? (
+                    <label className="block text-sm font-semibold text-[var(--text-secondary)]">
+                      Commission %
+                      <input
+                        className="soft-input mt-1"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={commissionPercent}
+                        onChange={(e) => setCommissionPercent(e.target.value)}
+                      />
+                    </label>
+                  ) : (
+                    <p className="text-sm text-[var(--text-muted)]">
+                      Default agency commission from platform settings will apply.
+                    </p>
+                  )}
                   <div className="flex justify-end gap-2 pt-2">
                     <SecondaryButton onClick={() => setModalOpen(false)} disabled={saving}>
                       Cancel

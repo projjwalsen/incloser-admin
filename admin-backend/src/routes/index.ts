@@ -2,13 +2,14 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import {
   ADMIN_USER_MANAGER_ROLES,
-  AGENCY_MANAGER_ROLES,
+  AGENCY_FINANCE_ROLES,
+  AGENCY_OPERATIONS_ROLES,
   MODELS_READ_ROLES,
   VERIFICATION_ROLES,
 } from "../lib/adminRoles.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { adminUsersRoutes } from "./modules/adminUsers.routes.js";
-import { agenciesRoutes } from "./modules/agencies.routes.js";
+import { agenciesCrudRoutes, agenciesFinanceRoutes } from "./modules/agencies.routes.js";
 import { agencyAuthRoutes, agencyPortalRoutes } from "./modules/agencyPortal.routes.js";
 import { auditLogsRoutes } from "./modules/audit-logs.routes.js";
 import { authRoutes } from "./modules/auth.routes.js";
@@ -73,7 +74,8 @@ adminRouter.use(requireRole("super_admin", "moderator", "finance_admin", "suppor
 adminRouter.use(requireRole(...MODELS_READ_ROLES), modelsRoutes);
 adminRouter.use(requireRole(...VERIFICATION_ROLES), verificationRoutes);
 adminRouter.use(requireRole("super_admin", "finance_admin"), withdrawalsRoutes);
-adminRouter.use(requireRole(...AGENCY_MANAGER_ROLES), agenciesRoutes);
+adminRouter.use(requireRole(...AGENCY_OPERATIONS_ROLES), agenciesCrudRoutes);
+adminRouter.use(requireRole(...AGENCY_FINANCE_ROLES), agenciesFinanceRoutes);
 adminRouter.use(requireRole("super_admin", "finance_admin"), financeRoutes);
 adminRouter.use(requireRole("super_admin", "moderator"), cmsRoutes);
 adminRouter.use(requireRole("super_admin"), settingsRoutes);

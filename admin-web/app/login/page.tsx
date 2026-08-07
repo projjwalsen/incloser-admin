@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PrimaryButton } from "@/components/ui/primary-button";
 import { adminLogin, getAuthToken } from "@/lib/api-client";
-import { defaultLandingPath, setAdminSession } from "@/lib/admin-session";
+import { defaultLandingPath, getAdminRole, setAdminSession } from "@/lib/admin-session";
 import type { AdminRole } from "@incloser/shared-types";
 
 type FormState = {
@@ -28,9 +28,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (getAuthToken()?.trim()) {
-        router.replace("/dashboard");
-      }
+      const token = getAuthToken()?.trim();
+      if (!token) return;
+      const role = getAdminRole();
+      router.replace(role ? defaultLandingPath(role) : "/dashboard");
     }, 0);
     return () => window.clearTimeout(timer);
   }, [router]);

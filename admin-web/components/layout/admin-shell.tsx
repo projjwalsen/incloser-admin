@@ -4,8 +4,13 @@ import type { PropsWithChildren } from "react";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getAuthToken } from "@/lib/api-client";
-import { canAccessNav, getAdminRole } from "@/lib/admin-session";
-import type { AdminRole } from "@incloser/shared-types";
+import { fetchAdminProfile } from "@/lib/admin-users-api";
+import {
+  canAccessNav,
+  defaultLandingPath,
+  getAdminRole,
+  setAdminSession,
+} from "@/lib/admin-session";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -15,22 +20,38 @@ export function AdminShell({ children }: PropsWithChildren) {
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    void (async () => {
       const token = getAuthToken();
       if (!token?.trim()) {
         router.replace("/login");
         return;
       }
 
-      const role = getAdminRole() as AdminRole | null;
+      let role = getAdminRole();
+      if (!role) {
+        try {
+          const profile = await fetchAdminProfile();
+          setAdminSession({
+            token,
+            role: profile.role,
+            username: profile.username,
+            fullName: profile.fullName,
+            email: profile.email,
+          });
+          role = profile.role;
+        } catch {
+          router.replace("/login");
+          return;
+        }
+      }
+
       if (pathname && role && !canAccessNav(pathname, role)) {
-        router.replace(role === "verification_admin" ? "/verification/profile" : "/agencies");
+        router.replace(defaultLandingPath(role));
         return;
       }
 
       setSessionReady(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
+    })();
   }, [router, pathname]);
 
   if (!sessionReady) {
