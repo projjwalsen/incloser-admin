@@ -1,10 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
-import {
-  ADMIN_USER_MANAGER_ROLES,
-  MODELS_READ_ROLES,
-  VERIFICATION_ROLES,
-} from "../lib/adminRoles.js";
+import { ADMIN_USER_MANAGER_ROLES } from "../lib/adminRoles.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { adminUsersRoutes } from "./modules/adminUsers.routes.js";
 import { agenciesRoutes } from "./modules/agencies.routes.js";
@@ -69,11 +65,11 @@ adminRouter.get("/", (_req, res) => {
 });
 
 adminRouter.use(dashboardRoutes);
-/** Per-route RBAC — mount before blanket `requireRole` stacks so operations_admin can reach /agencies. */
+/** Per-route RBAC — mount before blanket `requireRole` stacks so staff roles are not blocked. */
 adminRouter.use(agenciesRoutes);
+adminRouter.use(verificationRoutes);
+adminRouter.use(modelsRoutes);
 adminRouter.use(requireRole("super_admin", "moderator", "finance_admin", "support_admin"), usersRoutes);
-adminRouter.use(requireRole(...MODELS_READ_ROLES), modelsRoutes);
-adminRouter.use(requireRole(...VERIFICATION_ROLES), verificationRoutes);
 adminRouter.use(requireRole("super_admin", "finance_admin"), withdrawalsRoutes);
 adminRouter.use(requireRole("super_admin", "finance_admin"), financeRoutes);
 adminRouter.use(requireRole("super_admin", "moderator"), cmsRoutes);
